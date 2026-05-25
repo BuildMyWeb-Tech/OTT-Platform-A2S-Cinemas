@@ -1,129 +1,130 @@
-import Stripe from "stripe";
-import Order from "../models/Order.js";
-import Cart from "../models/Cart.js";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 import { Request, Response } from "express";
+import Movie from "../models/Movie.js";
+import Purchase from "../models/Purchase.js";
+import License from "../models/License.js";
+import User from "../models/User.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
 
-// Create Checkout Session
-// POST /api/payment/checkout
-export const createCheckoutSession = async (req: Request, res: Response) => {
+// POST /api/payment/create-order
+export const createOrder = async (req: Request, res: Response) => {
     try {
-        const { items, shipping, success_url, cancel_url, orderId } = req.body;
+        const { movieId } = req.body;
+        if (!movieId) return res.status(400).json({ success: false, message: "movieId is required" });
 
-        const lineItems = items.map((item: any) => ({
-            price_data: {
-                currency: "usd",
-                product_data: {
-                    name: item.product.name,
-                    images: item.product.images ? [item.product.images[0]] : [],
-                },
-                unit_amount: Math.round(item.price * 100),
-            },
-            quantity: item.quantity,
-        }));
+        const movie = await Movie.findById(movieId);
+        if (!movie || !movie.isActive)
+            return res.status(404).json({ success: false, message: "Movie not found or inactive" });
 
-        if (shipping > 0) {
-            lineItems.push({
-                price_data: {
-                    currency: "usd",
-                    product_data: {
-                        name: "Shipping",
-                    },
-                    unit_amount: Math.round(shipping * 100),
-                },
-                quantity: 1,
+        // Check if already has active license
+        const existingLicense = await License.findOne({ user: req.user._id, movie: movieId });
+        if (existingLicense && existingLicense.isValid()) {
+            return res.status(400).json({
+                success: false,
+                message: "You already have an active license for this movie",
+                expiresAt: existingLicense.expiryDate,
             });
         }
 
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ["card"],
-            line_items: lineItems,
-            mode: "payment",
-            success_url: success_url || "https://success.com",
-            cancel_url: cancel_url || "https://cancel.com",
-            payment_intent_data: {
-                metadata: {
-                    orderId: orderId,
-                    appId: "forever-app",
-                },
+        const amountInPaise = Math.round(movie.price * 100);
+
+        const order = await razorpay.orders.create({
+            amount: amountInPaise,
+            currency: "INR",
+            notes: {
+                movieId: movieId.toString(),
+                userId: req.user._id.toString(),
             },
         });
 
-        res.json({ id: session.id, url: session.url });
+        // Create pending purchase record
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + movie.expiryDays);
+
+        const purchase = await Purchase.create({
+            user: req.user._id,
+            movie: movieId,
+            razorpayOrderId: order.id,
+            amountPaid: movie.price,
+            expiryDate,
+            status: "pending",
+        });
+
+        res.json({
+            success: true,
+            data: {
+                orderId: order.id,
+                amount: order.amount,
+                currency: order.currency,
+                purchaseId: purchase._id,
+                movieTitle: movie.title,
+                key: process.env.RAZORPAY_KEY_ID,
+            },
+        });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Handle Stripe Webhook
-// POST /api/stripe
-export const handleStripeWebhook = async (req: Request, res: Response) => {
-    const sig = req.headers["stripe-signature"];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    let event;
-
+// POST /api/payment/verify
+export const verifyPayment = async (req: Request, res: Response) => {
     try {
-        event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret as string);
-    } catch (err: any) {
-        console.error(`Webhook Error: ${err.message}`);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-    const { orderId, appId } = (event.data.object as any).metadata;
-
-    if (appId !== "forever-app") {
-        return res.status(400).send("Invalid app id");
-    }
-
-    // Handle the event
-    try {
-        switch (event.type) {
-            case "payment_intent.succeeded":
-                let order;
-
-                if (orderId) {
-                    order = await Order.findById(orderId);
-                } else {
-                    order = await Order.findOne({ paymentIntentId: event.data.object.id });
-                }
-
-                if (order) {
-                    order.paymentStatus = "paid";
-                    order.paymentMethod = "stripe";
-                    if (!order.paymentIntentId) {
-                        order.paymentIntentId = event.data.object.id;
-                    }
-                    await order.save();
-
-                    // Clear User Cart
-                    const cart = await Cart.findOne({ user: order.user });
-                    if (cart) {
-                        cart.items = [];
-                        cart.totalAmount = 0;
-                        await cart.save();
-                    }
-                } else {
-                    console.warn(`Order not found for PaymentIntent ${event.data.object.id}`);
-                }
-                break;
-
-            case "payment_intent.canceled":
-                await Order.findByIdAndUpdate(orderId, { paymentStatus: "failed", orderStatus: "cancelled" });
-                break;
-
-            case "payment_intent.payment_failed":
-                await Order.findByIdAndUpdate(orderId, { paymentStatus: "failed", orderStatus: "cancelled" });
-                break;
-
-            default:
-                console.log(`Unhandled event type ${event.type}`);
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.status(400).json({ success: false, message: "Missing payment fields" });
         }
 
-        res.send({ success: true });
-    } catch (err: any) {
-        console.error(`Webhook Processing Error: ${err.message}`);
-        res.status(500).send(`Webhook Processing Error: ${err.message}`);
+        // HMAC signature verification
+        const body = razorpay_order_id + "|" + razorpay_payment_id;
+        const expectedSignature = crypto
+            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+            .update(body)
+            .digest("hex");
+
+        if (expectedSignature !== razorpay_signature) {
+            return res.status(400).json({ success: false, message: "Invalid payment signature" });
+        }
+
+        // Update purchase to active
+        const purchase = await Purchase.findOne({ razorpayOrderId: razorpay_order_id });
+        if (!purchase) return res.status(404).json({ success: false, message: "Purchase not found" });
+
+        purchase.razorpayPaymentId = razorpay_payment_id;
+        purchase.status = "active";
+        await purchase.save();
+
+        // Delete old license if any (re-purchase scenario)
+        await License.findOneAndDelete({ user: purchase.user, movie: purchase.movie });
+
+        // Create new license
+        const license = await License.create({
+            user: purchase.user,
+            movie: purchase.movie,
+            purchase: purchase._id,
+            expiryDate: purchase.expiryDate,
+        });
+
+        // Add movie to user's purchasedMovies
+        await User.findByIdAndUpdate(purchase.user, {
+            $addToSet: { purchasedMovies: purchase.movie },
+        });
+
+        res.json({
+            success: true,
+            message: "Payment verified. License activated.",
+            data: {
+                licenseId: license._id,
+                expiryDate: license.expiryDate,
+                movieId: purchase.movie,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

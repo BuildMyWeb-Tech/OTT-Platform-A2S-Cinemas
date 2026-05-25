@@ -1,10 +1,11 @@
 import express from "express";
-import { getDashboardStats } from "../controllers/adminController.js";
+import { getDashboardStats, getAllUsers, blockUser, unblockUser } from "../controllers/adminController.js";
 import { protect, authorize } from "../middleware/auth.js";
 
-const AdminRouter = express.Router();
-
-// Get dashboard stats
-AdminRouter.get("/stats", protect, authorize("admin"), getDashboardStats);
-
-export default AdminRouter;
+const router = express.Router();
+router.use(protect, authorize("admin"));
+router.get("/stats", getDashboardStats);
+router.get("/users", getAllUsers);
+router.patch("/users/:id/block", blockUser);
+router.patch("/users/:id/unblock", unblockUser);
+export default router;

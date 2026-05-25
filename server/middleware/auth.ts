@@ -1,57 +1,39 @@
-import { clerkClient } from "@clerk/express";
-import User from "../models/User.js";
+import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
+import User from "../models/User.js";
 
 export const protect = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { userId } = await req.auth();
+        const token = req.headers.authorization?.startsWith("Bearer ")
+            ? req.headers.authorization.split(" ")[1]
+            : null;
 
-        if (!userId) {
-            return res.status(401).json({
-                success: false,
-                message: "Not authorized",
-            });
+        if (!token) {
+            return res.status(401).json({ success: false, message: "Not authenticated" });
         }
 
-        let user = await User.findOne({ clerkId: userId });
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+        const user = await User.findById(decoded.id).select("-password");
 
-        // First login → create DB user ( if webhook fails )
         if (!user) {
-            const clerkUser = await clerkClient.users.getUser(userId);
-            const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+            return res.status(401).json({ success: false, message: "User not found" });
+        }
 
-            if (!email) {
-                return res.status(401).json({
-                    success: false,
-                    message: "Email not found",
-                });
-            }
-
-            user = await User.create({
-                name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
-                email,
-                clerkId: userId,
-            });
+        if (user.isBlocked) {
+            return res.status(403).json({ success: false, message: "Account is blocked" });
         }
 
         req.user = user;
         next();
-    } catch (err) {
-        console.error("Auth error:", err);
-        res.status(500).json({
-            success: false,
-            message: "Authentication failed",
-        });
+    } catch (error: any) {
+        res.status(401).json({ success: false, message: "Invalid token" });
     }
 };
 
 export const authorize = (...roles: string[]) => {
     return (req: Request, res: Response, next: NextFunction) => {
         if (!roles.includes(req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: "User role is not authorized to access this route",
-            });
+            return res.status(403).json({ success: false, message: "Access denied" });
         }
         next();
     };

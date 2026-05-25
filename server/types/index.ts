@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Document, Types } from "mongoose";
 
 export interface IAddress extends Document {
@@ -83,15 +84,58 @@ export interface IProduct extends Document {
 export interface IUser extends Document {
     name: string;
     email: string;
-    clerkId: string;
+    password: string;
     image?: string;
     role: "user" | "admin";
-    createdAt: Date;
-    updatedAt: Date;
+    isBlocked: boolean;
+    purchasedMovies: mongoose.Types.ObjectId[];
+    comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 export interface IWishlist extends Document {
     user: Types.ObjectId;
     products: Types.ObjectId[];
     createdAt: Date;
+}
+
+export interface IMovie extends Document {
+    title: string;
+    description: string;
+    genre: string;
+    price: number;
+    poster: string;
+    videoKey: string;
+    trailerUrl?: string;
+    duration?: number;
+    expiryDays: number;
+    isFeatured: boolean;
+    isActive: boolean;
+    categoryId?: mongoose.Types.ObjectId;
+    ratings: { average: number; count: number };
+}
+
+export interface ICategory extends Document {
+    name: string;
+    description?: string;
+    isActive: boolean;
+}
+
+export interface IPurchase extends Document {
+    user: mongoose.Types.ObjectId;
+    movie: mongoose.Types.ObjectId;
+    razorpayOrderId: string;
+    razorpayPaymentId?: string;
+    amountPaid: number;
+    purchaseDate: Date;
+    expiryDate: Date;
+    status: "pending" | "active" | "expired" | "failed";
+}
+
+export interface ILicense extends Document {
+    user: mongoose.Types.ObjectId;
+    movie: mongoose.Types.ObjectId;
+    purchase: mongoose.Types.ObjectId;
+    expiryDate: Date;
+    isRevoked: boolean;
+    isValid(): boolean;
 }
