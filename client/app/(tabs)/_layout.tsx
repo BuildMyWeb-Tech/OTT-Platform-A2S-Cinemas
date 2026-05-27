@@ -1,59 +1,64 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { View } from "react-native";
 import { COLORS } from "@/constants";
-import Feather from '@expo/vector-icons/Feather';
-import { useCart } from "@/context/CartContext";
+import { useLicense } from "@/context/LicenseContext";
 
 export default function TabLayout() {
-
-    const { cartItems } = useCart();
+    const { activeLicenses } = useLicense();   // use activeLicenses directly
 
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: COLORS.primary,
+                tabBarActiveTintColor: COLORS.accent,
                 tabBarInactiveTintColor: "#CDCDE0",
-                tabBarShowLabel: false,
+                tabBarShowLabel: true,
+                tabBarLabelStyle: { fontSize: 10, marginBottom: 2 },
                 tabBarStyle: {
                     backgroundColor: "#fff",
                     borderTopWidth: 1,
                     borderTopColor: "#F0F0F0",
-                    height: 56,
-                    paddingTop: 8
+                    height: 60,
+                    paddingTop: 6,
                 },
             }}
         >
             <Tabs.Screen
                 name="index"
                 options={{
-                    tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "home" : "home-outline"} size={26} color={color} />,
-                }}
-            />
-            <Tabs.Screen
-                name="cart"
-                options={{
+                    title: "Home",
                     tabBarIcon: ({ color, focused }) => (
-                        <View className="relative">
-                            <Feather name={focused ? "shopping-cart" : "shopping-cart"} size={26} color={color} />
-                            {cartItems?.length > 0 && <View className="absolute -top-2 -right-2 bg-accent size-3 rounded-full items-center justify-center">
-                                <Ionicons name="ellipse" size={6} color="white" />
-                            </View>}
-                        </View>
+                        <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
                     ),
                 }}
             />
             <Tabs.Screen
-                name="favorites"
+                name="browse"
                 options={{
-                    tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "heart" : "heart-outline"} size={26} color={color} />,
+                    title: "Browse",
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "search" : "search-outline"} size={24} color={color} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="library"
+                options={{
+                    title: "My Library",
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "library" : "library-outline"} size={24} color={color} />
+                    ),
+                    tabBarBadge: activeLicenses.length > 0 ? activeLicenses.length : undefined,
+                    tabBarBadgeStyle: { backgroundColor: COLORS.accent },
                 }}
             />
             <Tabs.Screen
                 name="profile"
                 options={{
-                    tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "person" : "person-outline"} size={26} color={color} />,
+                    title: "Profile",
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
+                    ),
                 }}
             />
         </Tabs>

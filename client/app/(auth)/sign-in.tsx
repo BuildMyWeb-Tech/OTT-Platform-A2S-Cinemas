@@ -1,138 +1,112 @@
 import { COLORS } from "@/constants";
-import { useSignIn } from "@clerk/clerk-expo";
-import type { EmailCodeFactor } from "@clerk/types";
+import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, useRouter } from "expo-router";
-import * as React from "react";
-import { Pressable, TextInput, View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import {
+    ActivityIndicator, Pressable, Text,
+    TextInput, TouchableOpacity, View
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 
-export default function Page() {
-    const { signIn, setActive, isLoaded } = useSignIn();
+export default function SignIn() {
     const router = useRouter();
+    const { login } = useAuth();
 
-    const [emailAddress, setEmailAddress] = React.useState("");
-    const [password, setPassword] = React.useState("");
-    const [code, setCode] = React.useState("");
-    const [showEmailCode, setShowEmailCode] = React.useState(false);
-    const [loading, setLoading] = React.useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const onSignInPress = async () => {
-
-        if (!isLoaded) return;
-        if (!emailAddress || !password) return;
-
-        setLoading(true);
-
-        try {
-
-            const signInAttempt = await signIn.create({
-                identifier: emailAddress,
-                password,
-            });
-
-            if (signInAttempt.status === "complete") {
-                await setActive({
-                    session: signInAttempt.createdSessionId,
-                });
-                router.replace("/");
-            } else if (signInAttempt.status === "needs_second_factor") {
-                const emailCodeFactor = signInAttempt.supportedSecondFactors?.find((factor): factor is EmailCodeFactor => factor.strategy === "email_code");
-
-                if (emailCodeFactor) {
-                    await signIn.prepareSecondFactor({
-                        strategy: "email_code",
-                        emailAddressId: emailCodeFactor.emailAddressId,
-                    });
-                    setShowEmailCode(true);
-                }
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
+    const handleSignIn = async () => {
+        if (!email || !password) {
+            return Toast.show({ type: "error", text1: "Missing fields", text2: "Enter email and password" });
         }
-    };
-
-    const onVerifyPress = async () => {
-        if (!isLoaded || !code) return;
-
         setLoading(true);
-        try {
-            const attempt = await signIn.attemptSecondFactor({
-                strategy: "email_code",
-                code,
-            });
-
-            if (attempt.status === "complete") {
-                await setActive({
-                    session: attempt.createdSessionId,
-                });
-                router.replace("/");
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
+        const result = await login(email.trim().toLowerCase(), password);
+        setLoading(false);
+        if (result.success) {
+            router.replace("/");
+        } else {
+            Toast.show({ type: "error", text1: "Login failed", text2: result.message || "Invalid credentials" });
         }
     };
 
     return (
         <SafeAreaView className="flex-1 bg-white justify-center" style={{ padding: 28 }}>
-            {!showEmailCode ? (
-                <>
-                    <TouchableOpacity onPress={() => router.push("/")} className="absolute top-12 z-10">
-                        <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+            <TouchableOpacity onPress={() => router.push("/")} className="absolute top-12 z-10">
+                <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+
+            <View className="items-center mb-8">
+                <Text style={{ fontSize: 28, fontWeight: "700", color: COLORS.accent, marginBottom: 4 }}>
+                    🎬 A2S Cinemas
+                </Text>
+                <Text className="text-3xl font-bold text-primary mb-2">Welcome Back</Text>
+                <Text className="text-secondary">Sign in to continue watching</Text>
+            </View>
+
+            {/* Email */}
+            <View className="mb-4">
+                <Text className="text-primary font-medium mb-2">Email</Text>
+                <TextInput
+                    className="w-full bg-surface p-4 rounded-xl text-primary"
+                    placeholder="user@example.com"
+                    placeholderTextColor="#999"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={email}
+                    onChangeText={setEmail}
+                />
+            </View>
+
+            {/* Password with eye icon */}
+            <View className="mb-6">
+                <Text className="text-primary font-medium mb-2">Password</Text>
+                <View style={{
+                    flexDirection: "row", alignItems: "center",
+                    backgroundColor: "#F7F7F7", borderRadius: 12,
+                    paddingHorizontal: 16, paddingVertical: 4,
+                }}>
+                    <TextInput
+                        style={{ flex: 1, fontSize: 16, color: COLORS.primary, paddingVertical: 12 }}
+                        placeholder="••••••••"
+                        placeholderTextColor="#999"
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
+                        <Ionicons
+                            name={showPassword ? "eye-off-outline" : "eye-outline"}
+                            size={22}
+                            color={COLORS.secondary}
+                        />
                     </TouchableOpacity>
+                </View>
+            </View>
 
-                    {/* Header */}
-                    <View className="items-center mb-8">
-                        <Text className="text-3xl font-bold text-primary mb-2">Welcome Back</Text>
-                        <Text className="text-secondary">Sign in to continue</Text>
-                    </View>
+            <Pressable
+                style={{
+                    backgroundColor: loading || !email || !password ? "#ccc" : COLORS.primary,
+                    borderRadius: 50, paddingVertical: 16, alignItems: "center", marginBottom: 40,
+                }}
+                onPress={handleSignIn}
+                disabled={loading || !email || !password}
+            >
+                {loading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Sign In</Text>
+                }
+            </Pressable>
 
-                    {/* Email */}
-                    <View className="mb-4">
-                        <Text className="text-primary font-medium mb-2">Email</Text>
-                        <TextInput className="w-full bg-surface p-4 rounded-xl text-primary" placeholder="user@example.com" placeholderTextColor="#999" autoCapitalize="none" keyboardType="email-address" value={emailAddress} onChangeText={setEmailAddress} />
-                    </View>
-
-                    {/* Password */}
-                    <View className="mb-6">
-                        <Text className="text-primary font-medium mb-2">Password</Text>
-                        <TextInput className="w-full bg-surface p-4 rounded-xl text-primary" placeholder="********" placeholderTextColor="#999" secureTextEntry value={password} onChangeText={setPassword} />
-                    </View>
-
-                    {/* Submit */}
-                    <Pressable className={`w-full py-4 rounded-full items-center mb-10 ${loading || !emailAddress || !password ? "bg-gray-300" : "bg-primary"}`} onPress={onSignInPress} disabled={loading || !emailAddress || !password}>
-                        {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-lg">Sign In</Text>}
-                    </Pressable>
-
-                    {/* Footer */}
-                    <View className="flex-row justify-center">
-                        <Text className="text-secondary">Don&apos;t have an account? </Text>
-                        <Link href="/sign-up">
-                            <Text className="text-primary font-bold">Sign up</Text>
-                        </Link>
-                    </View>
-                </>
-            ) : (
-                <>
-                    {/* Verification */}
-                    <View className="items-center mb-8">
-                        <Text className="text-3xl font-bold text-primary mb-2">Verify Email</Text>
-                        <Text className="text-secondary text-center">Enter the code sent to your email</Text>
-                    </View>
-
-                    <View className="mb-6">
-                        <TextInput className="w-full bg-surface p-4 rounded-xl text-primary text-center tracking-widest" placeholder="123456" placeholderTextColor="#999" keyboardType="number-pad" value={code} onChangeText={setCode} />
-                    </View>
-
-                    <Pressable className="w-full bg-primary py-4 rounded-full items-center" onPress={onVerifyPress} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-lg">Verify</Text>}
-                    </Pressable>
-                </>
-            )}
+            <View className="flex-row justify-center">
+                <Text className="text-secondary">Don&apos;t have an account? </Text>
+                <Link href="/sign-up">
+                    <Text className="text-primary font-bold">Sign up</Text>
+                </Link>
+            </View>
         </SafeAreaView>
     );
 }

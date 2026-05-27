@@ -98,13 +98,14 @@ export const getMe = async (req: Request, res: Response) => {
     }
 };
 
+// In authController.ts — replace updateProfile:
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { name, image } = req.body;
+        const { name, image } = req.body; // only allow name and image — never password here
         const user = await User.findByIdAndUpdate(
             req.user._id,
-            { name, image },
-            { new: true, runValidators: true }
+            { $set: { name, image } }, // use $set to be explicit
+            { new: true, runValidators: false } // runValidators: false prevents password re-validation
         ).select("-password");
         res.json({ success: true, data: user });
     } catch (error: any) {

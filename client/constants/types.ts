@@ -3,55 +3,79 @@ export interface User {
     name: string;
     email: string;
     role: "user" | "admin";
-    phone?: string;
-    address?: {
-        street: string;
-        city: string;
-        state: string;
-        zipCode: string;
-        country: string;
-    };
+    image?: string;
+    isBlocked: boolean;
+    purchasedMovies: string[];
     createdAt: string;
 }
 
-export interface Product {
+export interface Movie {
     _id: string;
-    name: string;
+    title: string;
     description: string;
+    genre: string;
     price: number;
-    comparePrice?: number;
-    images: string[];
-    sizes?: string[];
-    category:
-        | {
-              _id: string;
-              name: string;
-          }
-        | string;
-    stock: number;
-    ratings: {
-        average: number;
-        count: number;
-    };
+    poster: string;
+    trailerUrl?: string;
+    duration?: number;
+    expiryDays: number;
     isFeatured: boolean;
     isActive: boolean;
+    categoryId?: string | { _id: string; name: string };
+    ratings: { average: number; count: number };
     createdAt: string;
 }
 
-export type ProductCardProps = {
-    product: Product;
-};
-
-export interface CartItem {
-    product: Product;
-    quantity: number;
-    size: string;
+export interface License {
+    _id: string;
+    movie: Movie;
+    expiryDate: string;
+    isActive: boolean;
+    daysLeft: number;
+    isRevoked: boolean;
 }
 
-export type CartItemProps = {
-    item: { id: string; product: { name: string; price: number; images: string[] }; quantity: number; size: string };
-    onRemove?: () => void;
-    onUpdateQuantity?: (newQty: number) => void;
+export interface Purchase {
+    _id: string;
+    movie: Movie;
+    razorpayOrderId: string;
+    razorpayPaymentId?: string;
+    amountPaid: number;
+    purchaseDate: string;
+    expiryDate: string;
+    status: "pending" | "active" | "expired" | "failed";
+}
+
+export interface StreamResponse {
+    streamUrl: string;
+    expiresAt: string;
+    licenseExpiresAt: string;
+}
+
+export interface LicenseCheckResponse {
+    hasAccess: boolean;
+    expiresAt?: string;
+    daysLeft?: number;
+    message?: string;
+}
+
+export interface Category {
+    _id: string;
+    name: string;
+    description?: string;
+    isActive: boolean;
+}
+
+export type MovieCardProps = {
+    movie: Movie;
+    isPurchased?: boolean;
+    daysLeft?: number;
+};
+
+export type LicenseCardProps = {
+    license: License;
+    onWatch: () => void;
+    onRepurchase: () => void;
 };
 
 export type CategoryItemProps = {
@@ -64,59 +88,5 @@ export type HeaderProps = {
     title?: string;
     showBack?: boolean;
     showSearch?: boolean;
-    showCart?: boolean;
-    showMenu?: boolean;
     showLogo?: boolean;
-};
-
-export interface Address {
-    _id: string;
-    type: "Home" | "Work" | "Other";
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-    isDefault: boolean;
-    createdAt: string;
-}
-
-export interface OrderItem {
-    product: Product | string;
-    name: string;
-    quantity: number;
-    price: number;
-    image?: string;
-    size?: string;
-}
-
-export interface Order {
-    _id: string;
-    user: User | string;
-    orderNumber: string;
-    items: OrderItem[];
-    shippingAddress: {
-        street: string;
-        city: string;
-        state: string;
-        zipCode: string;
-        country: string;
-    };
-    paymentMethod: string;
-    paymentStatus: "pending" | "paid" | "failed" | "refunded";
-    orderStatus: "placed" | "processing" | "shipped" | "delivered" | "cancelled";
-    subtotal: number;
-    shippingCost: number;
-    tax: number;
-    totalAmount: number;
-    notes?: string;
-    deliveredAt?: string;
-    createdAt: string;
-}
-
-export type WishlistContextType = {
-    wishlist: Product[];
-    toggleWishlist: (product: Product) => void;
-    isInWishlist: (productId: string) => boolean;
-    loading: boolean;
 };

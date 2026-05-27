@@ -1,4 +1,5 @@
-import mongoose, { Document, Schema } from "mongoose";
+// server/models/User.ts
+import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import { IUser } from "../types/index.js";
 
@@ -15,8 +16,11 @@ const userSchema = new Schema<IUser>(
     { timestamps: true }
 );
 
+// CRITICAL FIX — only hash when password field is actually modified
 userSchema.pre("save", async function () {
     if (!this.isModified("password")) return;
+    // Only hash if not already hashed (bcrypt hashes start with $2b$)
+    if (this.password.startsWith("$2b$") || this.password.startsWith("$2a$")) return;
     this.password = await bcrypt.hash(this.password as string, 12);
 });
 

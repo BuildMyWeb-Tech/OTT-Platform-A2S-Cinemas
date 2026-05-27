@@ -1,134 +1,169 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Dimensions, Image, ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import {
+    ActivityIndicator, Dimensions, FlatList,
+    Image, ScrollView, Text, TouchableOpacity, View
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import CategoryItem from "@/components/CategoryItem";
-import Header from "@/components/Header";
-import ProductCard from "@/components/ProductCard";
+import { Ionicons } from "@expo/vector-icons";
 import api from "@/constants/api";
-import type { Product } from "@/constants/types";
-import { CATEGORIES } from "@/constants";
-import { BANNERS } from "@/assets/assets";
+import { Movie } from "@/constants/types";
+import { COLORS, GENRES } from "@/constants";
+import { useLicense } from "@/context/LicenseContext";
+import MovieCard from "@/components/MovieCard";
 
 const { width } = Dimensions.get("window");
 
 export default function Home() {
     const router = useRouter();
-    const [activeBannerIndex, setActiveBannerIndex] = useState(0);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { hasLicense, getDaysLeft } = useLicense();
 
-    const categories = [{ id: "all", name: "All", icon: "grid" }, ...CATEGORIES];
+    const [featuredMovies, setFeaturedMovies] = useState<Movie[]>([]);
+    const [allMovies, setAllMovies] = useState<Movie[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [bannerIndex, setBannerIndex] = useState(0);
 
     useEffect(() => {
-        fetchProducts();
+        fetchMovies();
     }, []);
 
-    const fetchProducts = async () => {
+    const fetchMovies = async () => {
         try {
-            const { data } = await api.get("/products");
-            setProducts(data.data);
+            const [featuredRes, allRes] = await Promise.all([
+                api.get("/movies?featured=true&limit=5"),
+                api.get("/movies?limit=12"),
+            ]);
+            setFeaturedMovies(featuredRes.data.data || []);
+            setAllMovies(allRes.data.data || []);
         } catch (error) {
-            console.error("Error fetching products:", error);
+            console.error("Failed to fetch movies:", error);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-            <Header title="Newever" showMenu showCart showLogo />
+        <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+            {/* Header */}
+            <View className="flex-row justify-between items-center px-4 py-3">
+                <Text style={{ fontSize: 22, fontWeight: "700", color: COLORS.accent }}>🎬 A2S Cinemas</Text>
+                <TouchableOpacity onPress={() => router.push("/browse")}>
+                    <Ionicons name="search-outline" size={24} color={COLORS.primary} />
+                </TouchableOpacity>
+            </View>
 
-            <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
-                {/* Banner Slider */}
-                <View className="mb-6">
-                    <ScrollView
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        className="w-full h-48 rounded-xl"
-                        onScroll={(e) => {
-                            const slide = Math.ceil(e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width);
-                            if (slide !== activeBannerIndex) {
-                                setActiveBannerIndex(slide);
-                            }
-                        }}
-                        scrollEventThrottle={16}
-                    >
-                        {BANNERS.map((banner, index) => (
-                            <View key={index} className="relative w-full h-48 bg-gray-200 overflow-hidden" style={{ width: width - 32 }}>
-                                <Image
-                                    source={{ uri: banner.image }}
-                                    className="w-full h-full"
-                                    resizeMode="cover"
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                {/* Featured Banner */}
+                {featuredMovies.length > 0 && (
+                    <View className="mb-6">
+                        <ScrollView
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            onScroll={(e) => {
+                                const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
+                                setBannerIndex(slide);
+                            }}
+                            scrollEventThrottle={16}
+                        >
+                            {featuredMovies.map((movie) => (
+                                <TouchableOpacity
+                                    key={movie._id}
+                                    style={{ width: width, height: 220 }}
+                                    onPress={() => router.push(`/movie/${movie._id}`)}
+                                    activeOpacity={0.9}
+                                >
+                                    <Image
+                                        source={{ uri: movie.poster }}
+                                        style={{ width: "100%", height: "100%" }}
+                                        resizeMode="cover"
+                                    />
+                                    {/* Overlay */}
+                                    <View
+                                        style={{
+                                            position: "absolute", bottom: 0, left: 0, right: 0,
+                                            padding: 16, backgroundColor: "rgba(0,0,0,0.55)"
+                                        }}
+                                    >
+                                        <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700" }}>
+                                            {movie.title}
+                                        </Text>
+                                        <View className="flex-row items-center mt-1 gap-3">
+                                            <Text style={{ color: "#ccc", fontSize: 12 }}>{movie.genre}</Text>
+                                            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: "600" }}>
+                                                ₹{movie.price}
+                                            </Text>
+                                            {hasLicense(movie._id) && (
+                                                <View style={{ backgroundColor: COLORS.success, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+                                                    <Text style={{ color: "#fff", fontSize: 10, fontWeight: "600" }}>OWNED</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        {/* Dots */}
+                        <View className="flex-row justify-center mt-2 gap-2">
+                            {featuredMovies.map((_, i) => (
+                                <View
+                                    key={i}
+                                    style={{
+                                        height: 6, borderRadius: 3,
+                                        width: i === bannerIndex ? 20 : 6,
+                                        backgroundColor: i === bannerIndex ? COLORS.accent : "#ccc",
+                                    }}
                                 />
-                                <View className="absolute bottom-4 left-4 z-10">
-                                    <Text className="text-white text-2xl font-bold">{banner.title}</Text>
-                                    <Text className="text-white text-sm font-medium">{banner.subtitle}</Text>
-                                    <TouchableOpacity className="mt-2 bg-white px-4 py-2 rounded-full self-start">
-                                        <Text className="text-primary font-bold text-xs">Get Now</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                {/* Overlay for better text readability */}
-                                <View className="absolute inset-0 bg-black/40" />
-                            </View>
-                        ))}
-                    </ScrollView>
-
-                    {/* Pagination Dots */}
-                    <View className="flex-row justify-center mt-3 gap-2">
-                        {BANNERS.map((_, index) => (
-                            <View
-                                key={index}
-                                className={`h-2 rounded-full ${index === activeBannerIndex ? 'w-6 bg-primary' : 'w-2 bg-gray-300'}`}
-                            />
-                        ))}
+                            ))}
+                        </View>
                     </View>
-                </View>
+                )}
 
-                {/* Categories */}
-                <View className="mb-6">
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-xl font-bold text-primary">Categories</Text>
-                    </View>
+                {/* Genre scroll */}
+                <View className="mb-4 px-4">
+                    <Text className="text-lg font-bold text-primary mb-3">Browse by Genre</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {categories.map((cat: any) => (
-                            <CategoryItem
-                                key={cat.id}
-                                item={cat}
-                                isSelected={false}
-                                onPress={() => router.push({ pathname: "/shop", params: { category: cat.id === 'all' ? '' : cat.name } })}
-                            />
+                        {GENRES.map((g) => (
+                            <TouchableOpacity
+                                key={g.id}
+                                onPress={() => router.push({ pathname: "/browse", params: { genre: g.id === "all" ? "" : g.id } })}
+                                style={{
+                                    marginRight: 10, paddingHorizontal: 16, paddingVertical: 8,
+                                    backgroundColor: COLORS.surface, borderRadius: 20,
+                                    flexDirection: "row", alignItems: "center", gap: 6,
+                                }}
+                            >
+                                <Ionicons name={g.icon as any} size={14} color={COLORS.primary} />
+                                <Text style={{ fontSize: 13, color: COLORS.primary }}>{g.name}</Text>
+                            </TouchableOpacity>
                         ))}
                     </ScrollView>
                 </View>
 
-                {/* Popular Products */}
-                <View className="mb-8">
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-xl font-bold text-primary">Popular</Text>
-                        <TouchableOpacity onPress={() => router.push("/shop")}>
-                            <Text className="text-secondary text-sm">See All</Text>
+                {/* All Movies */}
+                <View className="px-4 mb-8">
+                    <View className="flex-row justify-between items-center mb-3">
+                        <Text className="text-lg font-bold text-primary">All Movies</Text>
+                        <TouchableOpacity onPress={() => router.push("/browse")}>
+                            <Text style={{ color: COLORS.secondary, fontSize: 13 }}>See all</Text>
                         </TouchableOpacity>
                     </View>
+
                     {loading ? (
-                        <ActivityIndicator size="large" />
+                        <ActivityIndicator size="large" color={COLORS.accent} />
                     ) : (
                         <View className="flex-row flex-wrap justify-between">
-                            {products.slice(0, 4).map((product) => (
-                                <ProductCard key={product._id} product={product} />
+                            {allMovies.map((movie) => (
+                                <MovieCard
+                                    key={movie._id}
+                                    movie={movie}
+                                    isPurchased={hasLicense(movie._id)}
+                                    daysLeft={getDaysLeft(movie._id)}
+                                />
                             ))}
                         </View>
                     )}
-                </View>
-
-                {/* Newsletter CTA */}
-                <View className="bg-gray-100 p-6 rounded-2xl mb-20 items-center">
-                    <Text className="text-2xl font-bold text-primary mb-2 text-center">Join the Revolution</Text>
-                    <Text className="text-secondary text-center mb-4">Subscribe to our newsletter and get 10% off your first purchase.</Text>
-                    <TouchableOpacity className="bg-primary w-4/5 py-3 rounded-full items-center">
-                        <Text className="text-white font-medium text-base">Subscribe Now</Text>
-                    </TouchableOpacity>
                 </View>
             </ScrollView>
         </SafeAreaView>

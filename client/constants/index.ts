@@ -3,40 +3,36 @@ export const COLORS = {
     secondary: "#666666",
     background: "#FFFFFF",
     surface: "#F7F7F7",
-    accent: "#FF4C3B",
+    accent: "#E50914",       // Netflix-style red for OTT
+    success: "#1D9E75",
+    warning: "#EF9F27",
     border: "#EEEEEE",
     error: "#FF4444",
+    card: "#1A1A2E",         // dark card for movie posters
 };
 
-export const CATEGORIES = [
-    { id: 1, name: "Men", icon: "man-outline" },
-    { id: 2, name: "Women", icon: "woman-outline" },
-    { id: 3, name: "Kids", icon: "happy-outline" },
-    { id: 4, name: "Shoes", icon: "footsteps-outline" },
-    { id: 5, name: "Bag", icon: "briefcase-outline" },
-    { id: 6, name: "Other", icon: "grid-outline" },
+export const GENRES = [
+    { id: "all", name: "All", icon: "grid-outline" },
+    { id: "Action", name: "Action", icon: "flash-outline" },
+    { id: "Drama", name: "Drama", icon: "film-outline" },
+    { id: "Comedy", name: "Comedy", icon: "happy-outline" },
+    { id: "Thriller", name: "Thriller", icon: "warning-outline" },
+    { id: "Horror", name: "Horror", icon: "skull-outline" },
+    { id: "Romance", name: "Romance", icon: "heart-outline" },
+    { id: "SciFi", name: "Sci-Fi", icon: "planet-outline" },
+    { id: "Documentary", name: "Docs", icon: "camera-outline" },
+    { id: "Animation", name: "Animation", icon: "color-palette-outline" },
 ];
 
 export const PROFILE_MENU = [
-    { id: 1, title: "My Orders", icon: "receipt-outline", route: "/orders" },
-    { id: 2, title: "Shipping Addresses", icon: "location-outline", route: "/addresses" },
-    { id: 4, title: "My Reviews", icon: "star-outline", route: "/" },
-    { id: 5, title: "Settings", icon: "settings-outline", route: "/" },
+    { id: 1, title: "My Library", icon: "library-outline", route: "/(tabs)/library" },
+    { id: 2, title: "Purchase History", icon: "receipt-outline", route: "/purchases" },
+    { id: 3, title: "Settings", icon: "settings-outline", route: "/" },
 ];
 
-export const getStatusColor = (status: string) => {
-    switch (status) {
-        case "placed":
-            return "bg-yellow-50 text-yellow-900";
-        case "processing":
-            return "bg-indigo-50 text-indigo-900";
-        case "shipped":
-            return "bg-purple-50 text-purple-900";
-        case "delivered":
-            return "bg-green-50 text-green-900";
-        case "cancelled":
-            return "bg-red-50 text-red-900";
-        default:
-            return "bg-gray-50 text-gray-900";
-    }
+export const LICENSE_STATUS_COLOR = (daysLeft: number, isActive: boolean) => {
+    if (!isActive) return { bg: "#fcebeb", text: "#a32d2d", label: "Expired" };
+    if (daysLeft <= 3) return { bg: "#faeeda", text: "#633806", label: `${daysLeft}d left` };
+    if (daysLeft <= 7) return { bg: "#fef9ee", text: "#ef9f27", label: `${daysLeft}d left` };
+    return { bg: "#e8f8f0", text: "#0f6e56", label: `${daysLeft}d left` };
 };
