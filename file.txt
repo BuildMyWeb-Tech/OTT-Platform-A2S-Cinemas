@@ -1,7 +1,54 @@
-C:\Users\ajaik\Downloads\OTT-Platform-A2S-Cinemas>node show-structure.js
+C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
 📄 .gitignore
+📁 admin
+   📄 .env.local
+   📄 .gitignore
+   📁 app
+      📁 (dashboard)
+         📁 categories
+            📄 page.tsx
+         📄 layout.tsx
+         📁 licenses
+            📄 page.tsx
+         📁 movies
+            📁 add
+               📄 page.tsx
+            📄 page.tsx
+            📁 [id]
+               📁 edit
+                  📄 page.tsx
+         📄 page.tsx
+         📁 purchases
+            📄 page.tsx
+         📁 users
+            📄 page.tsx
+      📄 globals.css
+      📄 layout.tsx
+      📁 login
+         📄 page.tsx
+   📁 components
+      📄 AuthGuard.tsx
+      📄 Sidebar.tsx
+      📄 ui.tsx
+   📁 context
+      📄 AuthContext.tsx
+   📄 declarations.d.ts
+   📁 lib
+      📄 api.ts
+      📄 types.ts
+   📄 next-env.d.ts
+   📄 next.config.mjs
+   📄 package.json
+   📄 postcss.config.mjs
+   📄 tailwind.config.ts
+   📄 tsconfig.json
 📁 client
    📄 .env
+   📁 .expo
+      📄 devices.json
+      📄 README.md
+      📁 types
+         📄 router.d.ts
    📄 .gitignore
    📁 app
       📁 (auth)
@@ -9,13 +56,11 @@ C:\Users\ajaik\Downloads\OTT-Platform-A2S-Cinemas>node show-structure.js
          📄 sign-up.tsx
          📄 _layout.tsx
       📁 (tabs)
-         📄 cart.tsx
-         📄 favorites.tsx
+         📄 browse.tsx
          📄 index.tsx
+         📄 library.tsx
          📄 profile.tsx
          📄 _layout.tsx
-      📁 addresses
-         📄 index.tsx
       📁 admin
          📄 index.tsx
          📄 orders.tsx
@@ -26,13 +71,16 @@ C:\Users\ajaik\Downloads\OTT-Platform-A2S-Cinemas>node show-structure.js
             📄 index.tsx
             📄 _layout.tsx
          📄 _layout.tsx
-      📄 checkout.tsx
-      📁 orders
-         📄 index.tsx
+      📁 movie
+         📄 [id].tsx
+      📁 payment
+         📄 callback.tsx
+      📁 player
          📄 [id].tsx
       📁 product
+      📁 purchases
+         📄 index.tsx
          📄 [id].tsx
-      📄 shop.tsx
       📄 _layout.tsx
    📄 app.json
    📁 assets
@@ -65,17 +113,16 @@ C:\Users\ajaik\Downloads\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 logo.png
    📄 babel.config.js
    📁 components
-      📄 CartItem.tsx
       📄 CategoryItem.tsx
       📄 Header.tsx
-      📄 ProductCard.tsx
+      📄 MovieCard.tsx
    📁 constants
       📄 api.ts
       📄 index.ts
       📄 types.ts
    📁 context
-      📄 CartContext.tsx
-      📄 WishlistContext.tsx
+      📄 AuthContext.tsx
+      📄 LicenseContext.tsx
    📄 declarations.d.ts
    📄 eslint.config.js
    📄 expo-env.d.ts
@@ -86,20 +133,28 @@ C:\Users\ajaik\Downloads\OTT-Platform-A2S-Cinemas>node show-structure.js
    📄 README.md
    📄 tailwind.config.js
    📄 tsconfig.json
-📄 How to Run Native App.pdf
+📄 file.txt
+📄 OTT-Platform.postman_collection.json
 📁 server
    📄 .env
    📄 .gitignore
    📁 config
       📄 cloudinary.ts
       📄 db.ts
+      📄 s3.ts
    📁 controllers
       📄 addressController.ts
       📄 adminController.ts
+      📄 authController.ts
       📄 cartController.ts
+      📄 categoryController.ts
+      📄 licenseController.ts
+      📄 movieController.ts
       📄 ordersController.ts
       📄 paymentController.ts
       📄 productController.ts
+      📄 purchaseController.ts
+      📄 streamController.ts
       📄 webhooks.ts
       📄 wishlistController.ts
    📁 middleware
@@ -108,21 +163,34 @@ C:\Users\ajaik\Downloads\OTT-Platform-A2S-Cinemas>node show-structure.js
    📁 models
       📄 Address.ts
       📄 Cart.ts
+      📄 Category.ts
+      📄 License.ts
+      📄 Movie.ts
       📄 Order.ts
       📄 Product.ts
+      📄 Purchase.ts
       📄 User.ts
       📄 Wishlist.ts
    📄 package.json
    📁 routes
       📄 addressRoutes.ts
       📄 adminRoutes.ts
+      📄 authRoutes.ts
       📄 cartRoutes.ts
+      📄 categoryRoutes.ts
+      📄 licenseRoutes.ts
+      📄 movieRoutes.ts
       📄 ordersRoutes.ts
-      📄 paymentRoute.ts
+      📄 paymentRoutes.ts
       📄 productsRoutes.ts
+      📄 purchaseRoutes.ts
+      📄 streamRoutes.ts
       📄 wishlistRoutes.ts
    📁 scripts
       📄 makeAdmin.ts
+      📄 resetDB.ts
+      📄 resetTestData.ts
+      📄 seedOTT.ts
       📄 seedProducts.ts
    📄 server.ts
    📄 tsconfig.json

@@ -43,3 +43,15 @@ export const deleteCategory = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const toggleCategory = async (req: Request, res: Response) => {
+    try {
+        const cat = await Category.findById(req.params.id);
+        if (!cat) return res.status(404).json({ success: false, message: "Not found" });
+        cat.isActive = !cat.isActive;
+        await cat.save();
+        res.json({ success: true, data: cat });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

@@ -16,7 +16,15 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+        "http://localhost:3001",        // admin panel
+        "http://localhost:8081",        // expo web
+        "http://192.168.1.10:3001",    // admin panel via IP
+        "http://192.168.1.10:8081",    // expo web via IP
+    ],
+    credentials: true,
+}));
 app.use(express.json());
 
 // Debug middleware
@@ -30,8 +38,22 @@ app.get("/", (_req, res) => {
     res.send("OTT Platform API running");
 });
 
-app.get("/health", (_req, res) => {
-    res.json({ status: "OTT API running" });
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "A2S Cinemas API",
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "A2S Cinemas API",
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+  });
 });
 
 // API routes
