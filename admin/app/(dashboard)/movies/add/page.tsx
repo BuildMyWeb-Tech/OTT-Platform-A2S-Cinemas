@@ -1,64 +1,144 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { PageHeader, Input, Select, Textarea, Button } from "@/components/ui";
+import { ArrowLeft, Upload, X, Film, Image as ImageIcon } from "lucide-react";
+import { PageHeader, Input, Select, Textarea, Button, Spinner } from "@/components/ui";
 import api from "@/lib/api";
 
 const GENRES = ["Action", "Drama", "Comedy", "Thriller", "Horror", "Romance", "SciFi", "Documentary", "Animation", "Other"];
 
-interface MovieForm {
-  title: string;
-  description: string;
-  genre: string;
-  price: string;
-  poster: string;
-  videoKey: string;
-  trailerUrl: string;
-  duration: string;
-  expiryDays: string;
-  isFeatured: boolean;
+interface UploadState {
+  file: File | null;
+  progress: number;
+  url: string;
+  uploading: boolean;
+  error: string;
 }
 
-const EMPTY: MovieForm = {
-  title: "", description: "", genre: "Action",
-  price: "", poster: "", videoKey: "", trailerUrl: "",
-  duration: "", expiryDays: "30", isFeatured: false,
-};
+const emptyUpload = (): UploadState => ({
+  file: null, progress: 0, url: "", uploading: false, error: "",
+});
 
 export default function AddMoviePage() {
   const router = useRouter();
-  const [form, setForm] = useState<MovieForm>(EMPTY);
-  const [errors, setErrors] = useState<Partial<MovieForm>>({});
-  const [loading, setLoading] = useState(false);
+  const posterInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState({
+    title: "", description: "", genre: "Action",
+    price: "", expiryDays: "30", trailerUrl: "",
+    duration: "", isFeatured: false,
+  });
+  const [poster, setPoster] = useState<UploadState>(emptyUpload());
+  const [video, setVideo] = useState<UploadState>(emptyUpload());
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState("");
 
-  const set = (key: keyof MovieForm) => (
+  const setField = (key: string) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
-    setErrors((prev) => ({ ...prev, [key]: "" }));
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+    setErrors((e) => ({ ...e, [key]: "" }));
+  };
+
+  // Upload poster to Cloudinary
+  const uploadPoster = async (file: File) => {
+    setPoster((p) => ({ ...p, file, uploading: true, error: "", progress: 0 }));
+    try {
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "a2s_posters";
+
+      if (!cloudName) {
+        // Cloudinary not configured — use URL input fallback
+        setPoster((p) => ({ ...p, uploading: false, error: "Cloudinary not configured — use URL input" }));
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", preset);
+      formData.append("folder", "a2s-cinemas/posters");
+
+      const xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          setPoster((p) => ({ ...p, progress: Math.round((e.loaded / e.total) * 100) }));
+        }
+      };
+
+      const result = await new Promise<string>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            const data = JSON.parse(xhr.response);
+            resolve(data.secure_url);
+          } else {
+            reject(new Error("Upload failed"));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+        xhr.send(formData);
+      });
+
+      setPoster((p) => ({ ...p, url: result, uploading: false, progress: 100 }));
+    } catch (err: any) {
+      setPoster((p) => ({ ...p, uploading: false, error: err.message || "Upload failed" }));
+    }
+  };
+
+  // Upload video to S3 via backend presigned URL
+  const uploadVideo = async (file: File) => {
+    setVideo((v) => ({ ...v, file, uploading: true, error: "", progress: 0 }));
+    try {
+      // Get presigned URL from backend
+      const { data } = await api.post("/admin/upload-url", {
+        fileName: file.name,
+        fileType: file.type,
+        folder: "videos",
+      });
+
+      const { uploadUrl, key } = data.data;
+
+      // Upload directly to S3
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setVideo((v) => ({ ...v, progress: Math.round((e.loaded / e.total) * 100) }));
+          }
+        };
+        xhr.onload = () => xhr.status === 200 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`));
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+        xhr.send(file);
+      });
+
+      setVideo((v) => ({ ...v, url: key, uploading: false, progress: 100 }));
+    } catch (err: any) {
+      setVideo((v) => ({ ...v, uploading: false, error: err.message || "Upload failed" }));
+    }
   };
 
   const validate = () => {
-    const errs: Partial<MovieForm> = {};
+    const errs: Record<string, string> = {};
     if (!form.title.trim()) errs.title = "Title is required";
     if (!form.description.trim()) errs.description = "Description is required";
-    if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0)
-      errs.price = "Valid price required";
-    if (!form.poster.trim()) errs.poster = "Poster URL is required";
-    if (!form.videoKey.trim()) errs.videoKey = "Video key is required";
-    if (!form.expiryDays || Number(form.expiryDays) <= 0)
-      errs.expiryDays = "Valid expiry days required";
+    if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0) errs.price = "Valid price required";
+    if (!poster.url) errs.poster = "Poster image is required";
+    if (!video.url) errs.video = "Video file is required";
+    if (!form.expiryDays || Number(form.expiryDays) <= 0) errs.expiryDays = "Valid expiry days required";
     return errs;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs as any); return; }
-    setLoading(true);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    setSaving(true);
     setServerError("");
     try {
       await api.post("/movies", {
@@ -66,8 +146,8 @@ export default function AddMoviePage() {
         description: form.description.trim(),
         genre: form.genre,
         price: Number(form.price),
-        poster: form.poster.trim(),
-        videoKey: form.videoKey.trim(),
+        poster: poster.url,
+        videoKey: video.url,
         trailerUrl: form.trailerUrl.trim() || undefined,
         duration: form.duration ? Number(form.duration) : undefined,
         expiryDays: Number(form.expiryDays),
@@ -77,19 +157,16 @@ export default function AddMoviePage() {
     } catch (err: any) {
       setServerError(err.response?.data?.message || "Failed to create movie");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
     <div>
-      <div className="mb-5">
-        <Link href="/movies" className="flex items-center gap-2 text-gray-500 hover:text-white text-sm transition-colors mb-4">
-          <ArrowLeft size={15} />
-          Back to Movies
-        </Link>
-        <PageHeader title="Add Movie" description="Add a new movie to the platform" />
-      </div>
+      <Link href="/movies" className="flex items-center gap-2 text-gray-500 hover:text-white text-sm mb-4">
+        <ArrowLeft size={15} />Back to Movies
+      </Link>
+      <PageHeader title="Add Movie" description="Upload video and poster, then fill in details" />
 
       <div className="max-w-2xl">
         {serverError && (
@@ -98,70 +175,146 @@ export default function AddMoviePage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-6 space-y-5">
-          {/* Basic info */}
-          <div>
-            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">Basic Info</h3>
-            <div className="space-y-4">
-              <Input label="Title" data-testid="movie-title-input" placeholder="Enter movie title" value={form.title} onChange={set("title")} error={errors.title} />
-              <Textarea
-                label="Description"
-                placeholder="Movie description..."
-                value={form.description}
-                onChange={set("description")}
-                error={errors.description}
-                rows={3}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Select label="Genre" value={form.genre} onChange={set("genre")}>
-                  {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-                </Select>
-                <div className="space-y-1.5">
-                  <label className="text-sm text-gray-400">Featured</label>
-                  <div className="flex items-center gap-3 h-[42px]">
-                    <button
-                      type="button"
-                        data-testid="movie-featured-toggle"
-                      onClick={() => setForm((f) => ({ ...f, isFeatured: !f.isFeatured }))}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.isFeatured ? "bg-[#E50914]" : "bg-[#1E1E2E]"}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.isFeatured ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                    </button>
-                    <span className="text-sm text-gray-400">{form.isFeatured ? "Yes" : "No"}</span>
-                  </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Poster upload */}
+          <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5">
+            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">
+              Poster Image (Cloudinary)
+            </h3>
+            <input
+              ref={posterInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && uploadPoster(e.target.files[0])}
+            />
+            {!poster.url ? (
+              <div>
+                <div
+                  onClick={() => posterInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${errors.poster ? "border-red-500" : "border-[#2E2E3E] hover:border-[#E50914]"}`}
+                >
+                  {poster.uploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Spinner size={24} />
+                      <p className="text-gray-400 text-sm">{poster.progress}%</p>
+                      <div className="w-32 h-1 bg-[#1E1E2E] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#E50914] transition-all" style={{ width: `${poster.progress}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <ImageIcon size={32} className="text-gray-600" />
+                      <p className="text-gray-400 text-sm">Click to upload poster</p>
+                      <p className="text-gray-600 text-xs">JPG, PNG, WebP — max 5MB</p>
+                    </div>
+                  )}
+                </div>
+                {poster.error && <p className="text-red-400 text-xs mt-1">{poster.error}</p>}
+                {errors.poster && <p className="text-red-400 text-xs mt-1">{errors.poster}</p>}
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <img src={poster.url} alt="poster" className="w-16 h-20 object-cover rounded" />
+                <div className="flex-1">
+                  <p className="text-white text-sm">Poster uploaded ✓</p>
+                  <p className="text-gray-500 text-xs truncate mt-0.5">{poster.url.slice(0, 60)}...</p>
+                </div>
+                <button type="button" onClick={() => setPoster(emptyUpload())} className="p-1.5 text-gray-500 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Video upload */}
+          <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5">
+            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">
+              Video File (AWS S3)
+            </h3>
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/mp4,video/mov,video/avi"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && uploadVideo(e.target.files[0])}
+            />
+            {!video.url ? (
+              <div>
+                <div
+                  onClick={() => videoInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${errors.video ? "border-red-500" : "border-[#2E2E3E] hover:border-[#E50914]"}`}
+                >
+                  {video.uploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Spinner size={24} />
+                      <p className="text-gray-400 text-sm">Uploading to S3... {video.progress}%</p>
+                      <div className="w-48 h-1.5 bg-[#1E1E2E] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#E50914] transition-all" style={{ width: `${video.progress}%` }} />
+                      </div>
+                      <p className="text-gray-600 text-xs">Large files may take a few minutes</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Film size={32} className="text-gray-600" />
+                      <p className="text-gray-400 text-sm">Click to upload video</p>
+                      <p className="text-gray-600 text-xs">MP4, MOV — any size (direct S3 upload)</p>
+                    </div>
+                  )}
+                </div>
+                {video.error && <p className="text-red-400 text-xs mt-1">{video.error}</p>}
+                {errors.video && <p className="text-red-400 text-xs mt-1">{errors.video}</p>}
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#1E1E2E] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Film size={20} className="text-[#E50914]" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-sm">Video uploaded to S3 ✓</p>
+                  <p className="text-gray-500 text-xs font-mono mt-0.5">{video.url}</p>
+                </div>
+                <button type="button" onClick={() => setVideo(emptyUpload())} className="p-1.5 text-gray-500 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Movie details */}
+          <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5 space-y-4">
+            <h3 className="text-white font-medium text-sm pb-2 border-b border-[#1E1E2E]">Movie Details</h3>
+            <Input label="Title" placeholder="Enter movie title" value={form.title} onChange={setField("title")} error={errors.title} data-testid="movie-title-input" />
+            <Textarea label="Description" placeholder="Movie description..." value={form.description} onChange={setField("description")} error={errors.description} rows={3} />
+            <div className="grid grid-cols-2 gap-4">
+              <Select label="Genre" value={form.genre} onChange={setField("genre")}>
+                {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
+              </Select>
+              <div className="space-y-1.5">
+                <label className="text-sm text-gray-400">Featured</label>
+                <div className="flex items-center gap-3 h-[42px]">
+                  <button
+                    type="button"
+                    data-testid="movie-featured-toggle"
+                    onClick={() => setForm((f) => ({ ...f, isFeatured: !f.isFeatured }))}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.isFeatured ? "bg-[#E50914]" : "bg-[#1E1E2E]"}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.isFeatured ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                  </button>
+                  <span className="text-sm text-gray-400">{form.isFeatured ? "Yes" : "No"}</span>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Pricing */}
-          <div>
-            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">Pricing & Access</h3>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Price (₹)"   data-testid="movie-price-input" type="number" min="1" placeholder="49" value={form.price} onChange={set("price")} error={errors.price} />
-              <Input label="Access Days" type="number" min="1" placeholder="30" value={form.expiryDays} onChange={set("expiryDays")} error={errors.expiryDays} />
+              <Input label="Price (₹)" type="number" min="1" placeholder="49" value={form.price} onChange={setField("price")} error={errors.price} data-testid="movie-price-input" />
+              <Input label="Access Days" type="number" min="1" placeholder="30" value={form.expiryDays} onChange={setField("expiryDays")} error={errors.expiryDays} />
             </div>
+            <Input label="Trailer URL (optional)" placeholder="https://commondatastorage.googleapis.com/..." value={form.trailerUrl} onChange={setField("trailerUrl")} />
+            <Input label="Duration (minutes, optional)" type="number" placeholder="120" value={form.duration} onChange={setField("duration")} />
           </div>
 
-          {/* Media */}
-          <div>
-            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">Media</h3>
-            <div className="space-y-4">
-              <Input label="Poster URL"   data-testid="movie-poster-input" placeholder="https://images.unsplash.com/..." value={form.poster} onChange={set("poster")} error={errors.poster} />
-              {form.poster && (
-                <div className="w-20 h-28 rounded overflow-hidden bg-[#1E1E2E]">
-                  <img src={form.poster} alt="poster preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                </div>
-              )}
-              <Input label="Video Key (S3 path)"   data-testid="movie-videokey-input"
-  placeholder="videos/movie-filename.mp4" value={form.videoKey} onChange={set("videoKey")} error={errors.videoKey} />
-              <Input label="Trailer URL (optional)" placeholder="https://commondatastorage.googleapis.com/..." value={form.trailerUrl} onChange={set("trailerUrl")} />
-              <Input label="Duration (minutes, optional)" type="number" placeholder="120" value={form.duration} onChange={set("duration")} />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" data-testid="movie-create-btn" variant="primary" loading={loading} className="flex-1">
+          <div className="flex gap-3">
+            <Button type="submit" variant="primary" loading={saving} className="flex-1" data-testid="movie-create-btn">
               Create Movie
             </Button>
             <Link href="/movies" className="flex-1">

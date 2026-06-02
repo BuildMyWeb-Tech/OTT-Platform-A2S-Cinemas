@@ -3,6 +3,10 @@ import User from "../models/User.js";
 import Movie from "../models/Movie.js";
 import Purchase from "../models/Purchase.js";
 import License from "../models/License.js";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
 
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
@@ -66,4 +70,52 @@ export const unblockUser = async (req: Request, res: Response) => {
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
+};
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION || "ap-south-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+export const getUploadUrl = async (req: Request, res: Response) => {
+  try {
+    const { fileName, fileType, folder = "videos" } = req.body;
+
+    if (!fileName || !fileType) {
+      return res.status(400).json({ success: false, message: "fileName and fileType required" });
+    }
+
+    // Allowed video types only
+    const allowedTypes = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/mpeg"];
+    if (!allowedTypes.includes(fileType)) {
+      return res.status(400).json({ success: false, message: "Only video files allowed (mp4, mov, avi)" });
+    }
+
+    // Generate unique key to avoid overwrites
+    const ext = path.extname(fileName);
+    const key = `${folder}/${uuidv4()}${ext}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: key,
+      ContentType: fileType,
+    });
+
+    // Presigned URL expires in 15 minutes — enough time to upload large files
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+
+    return res.json({
+      success: true,
+      data: {
+        uploadUrl,
+        key, // This is what gets saved as movie.videoKey in MongoDB
+      },
+    });
+  } catch (error: any) {
+    console.error("getUploadUrl error:", error.message);
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };

@@ -14,7 +14,7 @@ export default function RootLayout() {
     const sub = Linking.addEventListener("url", ({ url }) => {
         const parsed = Linking.parse(url);
         // Changed: "client" scheme (matches app.json)
-        if (parsed.scheme === "client" && parsed.path === "payment") {
+        if (parsed.scheme === "a2scinemas" && parsed.path === "payment") {
             router.push({
                 pathname: "/payment/callback",
                 params: {
@@ -29,7 +29,7 @@ export default function RootLayout() {
     Linking.getInitialURL().then((url) => {
         if (!url) return;
         const parsed = Linking.parse(url);
-        if (parsed.scheme === "client" && parsed.path === "payment") {
+        if (parsed.scheme === "a2scinemas" && parsed.path === "payment") {
             router.push({
                 pathname: "/payment/callback",
                 params: {

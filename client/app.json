@@ -1,33 +1,27 @@
 {
   "expo": {
-    "name": "a2scinemas",
-    "slug": "a2scinemas",
+    "name": "A2S Cinemas",
+    "slug": "ott-platform",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
 
-    "scheme": "client",
+    "scheme": "a2scinemas",
 
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
 
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.expo.client"
+      "bundleIdentifier": "com.a2scinemas.app"
     },
 
     "android": {
-      "package": "com.expo.client",
-
+      "package": "com.a2scinemas.app",
       "intentFilters": [
-        {
+       {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [
-            {
-              "scheme": "client"
-            }
-          ],
+          "data": [{ "scheme": "a2scinemas" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ],

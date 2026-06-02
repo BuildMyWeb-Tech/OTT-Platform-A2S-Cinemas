@@ -143,10 +143,12 @@ export const createMovie = async (req: Request, res: Response) => {
 
         const movie = await Movie.create(req.body);
 
-        res.status(201).json({
-            success: true,
-            data: movie,
-        });
+        const movieResponse = movie.toObject();
+        
+delete (movieResponse as any).videoKey;
+console.log("CREATE RESPONSE:", movieResponse);
+
+res.status(201).json({ success: true, data: movieResponse });
     } catch (error: any) {
         console.error("Create movie error:", error);
 
@@ -199,10 +201,9 @@ export const updateMovie = async (req: Request, res: Response) => {
             });
         }
 
-        res.json({
-            success: true,
-            data: movie,
-        });
+       const movieResponse = movie.toObject();
+delete (movieResponse as any).videoKey;
+res.json({ success: true, data: movieResponse });
     } catch (error: any) {
         console.error("Update movie error:", error);
 

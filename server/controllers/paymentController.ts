@@ -179,7 +179,7 @@ export const handlePaymentCallback = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error("Payment callback error:", error);
         return res.json({
-            deepLinkUrl: `client://payment?status=failed&reason=server_error`,
+            deepLinkUrl: `a2scinemas://payment?status=failed&reason=server_error`,
         });
     }
 };
@@ -270,7 +270,7 @@ export const servePaymentPage = async (req: Request, res: Response) => {
 
               // Step 2: try deep link after 600ms (if close didn't work)
               setTimeout(function() {
-                window.location.href = data.deepLinkUrl || 'client://payment?status=success&movie_id=${movieId}';
+                window.location.href = data.deepLinkUrl || 'a2scinemas://payment?status=success&movie_id=${movieId}';
 
                 // Step 3: show manual hint after 2s (last resort)
                 setTimeout(function() {
