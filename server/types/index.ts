@@ -99,9 +99,12 @@ export interface IWishlist extends Document {
 }
 
 export interface IMovie extends Document {
+    _id: mongoose.Types.ObjectId;
     title: string;
     description: string;
-    genre: string;
+    genre?: string;                               // legacy — kept for backward compat
+    categories?: mongoose.Types.ObjectId[];       // Phase 9A — dynamic categories
+    categoryId?: mongoose.Types.ObjectId;         // legacy single-category ref
     price: number;
     poster: string;
     videoKey: string;
@@ -110,8 +113,12 @@ export interface IMovie extends Document {
     expiryDays: number;
     isFeatured: boolean;
     isActive: boolean;
-    categoryId?: mongoose.Types.ObjectId;
-    ratings: { average: number; count: number };
+    ratings: {
+        average: number;
+        count: number;
+    };
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 export interface ICategory extends Document {
@@ -138,4 +145,20 @@ export interface ILicense extends Document {
     expiryDate: Date;
     isRevoked: boolean;
     isValid(): boolean;
+}
+export interface Review {
+    _id: string;
+    rating: number;
+    comment?: string;
+    userName: string;
+    createdAt: string;
+}
+
+export interface MyReview {
+    _id: string;
+    rating: number;
+    comment?: string;
+    status: "pending" | "approved" | "rejected";
+    createdAt: string;
+    updatedAt: string;
 }

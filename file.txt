@@ -138,6 +138,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
 📁 server
    📄 .env
    📄 .gitignore
+   📄 cloudfront-private-key.pem
    📁 config
       📄 cloudinary.ts
       📄 db.ts
@@ -159,6 +160,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 wishlistController.ts
    📁 middleware
       📄 auth.ts
+      📄 rateLimiter.ts
       📄 upload.ts
    📁 models
       📄 Address.ts
@@ -187,6 +189,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 streamRoutes.ts
       📄 wishlistRoutes.ts
    📁 scripts
+      📄 addIndexes.ts
       📄 makeAdmin.ts
       📄 resetDB.ts
       📄 resetTestData.ts

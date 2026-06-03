@@ -90,3 +90,20 @@ export type HeaderProps = {
     showSearch?: boolean;
     showLogo?: boolean;
 };
+
+export interface Review {
+    _id: string;
+    rating: number;
+    comment?: string;
+    userName: string;
+    createdAt: string;
+}
+
+export interface MyReview {
+    _id: string;
+    rating: number;
+    comment?: string;
+    status: "pending" | "approved" | "rejected";
+    createdAt: string;
+    updatedAt: string;
+}

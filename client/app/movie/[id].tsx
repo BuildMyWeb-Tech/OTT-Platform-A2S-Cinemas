@@ -2,19 +2,51 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator, Alert, Dimensions,
-    Image, ScrollView, Text, TouchableOpacity, View
+    ActivityIndicator, Alert, Dimensions, Image,
+    KeyboardAvoidingView, Modal, Platform, ScrollView,
+    Text, TextInput, TouchableOpacity, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
 import api from "@/constants/api";
 import { COLORS } from "@/constants";
-import { Movie, LicenseCheckResponse } from "@/constants/types";
+import { Movie, Review, MyReview } from "@/constants/types";
 import { useAuth } from "@/context/AuthContext";
 import { useLicense } from "@/context/LicenseContext";
 
 const { width } = Dimensions.get("window");
+
+// Star rating component
+function StarRating({
+    rating,
+    onRate,
+    size = 20,
+    readonly = false,
+}: {
+    rating: number;
+    onRate?: (r: number) => void;
+    size?: number;
+    readonly?: boolean;
+}) {
+    return (
+        <View style={{ flexDirection: "row", gap: 4 }}>
+            {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                    key={star}
+                    onPress={() => !readonly && onRate?.(star)}
+                    disabled={readonly}
+                    activeOpacity={readonly ? 1 : 0.7}
+                >
+                    <Ionicons
+                        name={star <= rating ? "star" : "star-outline"}
+                        size={size}
+                        color={star <= rating ? "#FFD700" : "#ccc"}
+                    />
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+}
 
 export default function MovieDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,11 +59,25 @@ export default function MovieDetail() {
     const [buyLoading, setBuyLoading] = useState(false);
     const [checkingPayment, setCheckingPayment] = useState(false);
 
+    // Reviews state
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [myReview, setMyReview] = useState<MyReview | null>(null);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState("");
+    const [submittingReview, setSubmittingReview] = useState(false);
+    const [reviewsPage, setReviewsPage] = useState(1);
+    const [reviewsTotal, setReviewsTotal] = useState(0);
+
     const owned = id ? hasLicense(id) : false;
     const daysLeft = id ? getDaysLeft(id) : 0;
 
     useEffect(() => {
-        if (id) fetchMovie();
+        if (id) {
+            fetchMovie();
+            fetchReviews();
+            if (isSignedIn) fetchMyReview();
+        }
     }, [id]);
 
     const fetchMovie = async () => {
@@ -45,121 +91,130 @@ export default function MovieDetail() {
         }
     };
 
-const handleBuy = async () => {
-    if (!isSignedIn) {
-        return Alert.alert(
-            "Sign in required",
-            "Please sign in to purchase movies",
-            [
-                { text: "Sign In", onPress: () => router.push("/sign-in") },
-                { text: "Cancel", style: "cancel" },
-            ]
-        );
-    }
+    const fetchReviews = async (page = 1) => {
+        try {
+            const { data } = await api.get(`/reviews/movie/${id}?page=${page}&limit=5`);
+            if (page === 1) {
+                setReviews(data.data);
+            } else {
+                setReviews((prev) => [...prev, ...data.data]);
+            }
+            setReviewsTotal(data.pagination.total);
+            setReviewsPage(page);
+        } catch (error) {
+            console.error("Failed to fetch reviews:", error);
+        }
+    };
 
-    setBuyLoading(true);
+    const fetchMyReview = async () => {
+        try {
+            const { data } = await api.get(`/reviews/my/${id}`);
+            if (data.data) {
+                setMyReview(data.data);
+                setReviewRating(data.data.rating);
+                setReviewComment(data.data.comment || "");
+            }
+        } catch (error) {
+            console.error("Failed to fetch my review:", error);
+        }
+    };
 
-    try {
-        const orderRes = await api.post("/payment/create-order", {
-            movieId: id,
-        });
-
-        if (!orderRes.data.success) {
-            Alert.alert(
-                "Error",
-                orderRes.data.message || "Failed to create order"
-            );
+    const handleSubmitReview = async () => {
+        if (reviewRating === 0) {
+            Alert.alert("Rating required", "Please select a star rating.");
             return;
         }
 
-        const { orderId, amount, currency, key } =
-            orderRes.data.data;
+        setSubmittingReview(true);
+        try {
+            await api.post("/reviews", {
+                movieId: id,
+                rating: reviewRating,
+                comment: reviewComment.trim() || undefined,
+            });
 
-        const serverIp =
-            process.env.EXPO_PUBLIC_SERVER_IP ||
-            "192.168.1.10";
+            setShowReviewModal(false);
+            await fetchMyReview();
+            await fetchReviews(1);
+            await fetchMovie(); // refresh rating average
 
-        const port =
-            process.env.EXPO_PUBLIC_API_PORT || "5000";
-
-        const payUrl =
-            `http://${serverIp}:${port}/api/payment/pay/${orderId}` +
-            `?amount=${amount}` +
-            `&currency=${currency || "INR"}` +
-            `&key=${key}` +
-            `&movieTitle=${encodeURIComponent(movie?.title || "")}` +
-            `&movieId=${id}`;
-
-        // Opens Razorpay payment page
-        await WebBrowser.openBrowserAsync(payUrl, {
-            dismissButtonStyle: "close",
-        });
-
-        // Browser closed → check payment status
-        setCheckingPayment(true);
-
-        let attempts = 0;
-        const maxAttempts = 6;
-
-        const checkLicense = async (): Promise<boolean> => {
-            try {
-                const res = await api.get(`/license/check/${id}`);
-                return res.data.hasAccess === true;
-            } catch {
-                return false;
-            }
-        };
-
-        const poll = async () => {
-            while (attempts < maxAttempts) {
-                const hasAccess = await checkLicense();
-
-                if (hasAccess) {
-                    // Refresh license context
-                    await fetchLicenses();
-
-                    // Re-fetch movie
-                    await fetchMovie();
-
-                    // Navigate to callback success screen
-                    router.replace({
-                        pathname: "/payment/callback",
-                        params: {
-                            status: "success",
-                            movie_id: id as string,
-                        },
-                    } as any);
-
-                    return;
-                }
-
-                attempts++;
-
-                await new Promise((resolve) =>
-                    setTimeout(resolve, 1000)
-                );
-            }
-
-            // Probably cancelled
             Alert.alert(
-                "Payment not completed",
-                "You can try again anytime."
+                "Review submitted",
+                reviewComment.trim()
+                    ? "Your rating is live. Your comment is pending admin approval."
+                    : "Your rating has been saved."
             );
-        };
+        } catch (error: any) {
+            Alert.alert(
+                "Failed",
+                error.response?.data?.message || "Could not submit review"
+            );
+        } finally {
+            setSubmittingReview(false);
+        }
+    };
 
-        await poll();
-    } catch (error: any) {
-        console.error("Payment error:", error);
+    const handleBuy = async () => {
+        if (!isSignedIn) {
+            return Alert.alert(
+                "Sign in required",
+                "Please sign in to purchase movies",
+                [
+                    { text: "Sign In", onPress: () => router.push("/sign-in") },
+                    { text: "Cancel", style: "cancel" },
+                ]
+            );
+        }
 
-        Alert.alert(
-            "Payment failed",
-            "Something went wrong. Please try again."
-        );
-    } finally {
-        setCheckingPayment(false);
-        setBuyLoading(false);
-    }
-};
+        setBuyLoading(true);
+        try {
+            const orderRes = await api.post("/payment/create-order", { movieId: id });
+            if (!orderRes.data.success) {
+                Alert.alert("Error", orderRes.data.message || "Failed to create order");
+                return;
+            }
+
+            const { orderId, amount, currency, key } = orderRes.data.data;
+            const serverIp = process.env.EXPO_PUBLIC_SERVER_IP || "192.168.1.10";
+            const port = process.env.EXPO_PUBLIC_API_PORT || "5000";
+            const payUrl =
+                `http://${serverIp}:${port}/api/payment/pay/${orderId}` +
+                `?amount=${amount}&currency=${currency || "INR"}&key=${key}` +
+                `&movieTitle=${encodeURIComponent(movie?.title || "")}&movieId=${id}`;
+
+            await WebBrowser.openBrowserAsync(payUrl, { dismissButtonStyle: "close" });
+
+            setCheckingPayment(true);
+            let attempts = 0;
+
+            const poll = async () => {
+                while (attempts < 6) {
+                    try {
+                        const res = await api.get(`/license/check/${id}`);
+                        if (res.data.hasAccess === true) {
+                            await fetchLicenses();
+                            await fetchMovie();
+                            router.replace({
+                                pathname: "/payment/callback",
+                                params: { status: "success", movie_id: id as string },
+                            } as any);
+                            return;
+                        }
+                    } catch {}
+                    attempts++;
+                    await new Promise((r) => setTimeout(r, 1000));
+                }
+                Alert.alert("Payment not completed", "You can try again anytime.");
+            };
+
+            await poll();
+        } catch (error: any) {
+            Alert.alert("Payment failed", "Something went wrong. Please try again.");
+        } finally {
+            setCheckingPayment(false);
+            setBuyLoading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -177,6 +232,8 @@ const handleBuy = async () => {
         );
     }
 
+    const hasMoreReviews = reviews.length < reviewsTotal;
+
     return (
         <View style={{ flex: 1, backgroundColor: "#fff" }}>
             <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
@@ -187,13 +244,10 @@ const handleBuy = async () => {
                         style={{ width: "100%", height: "100%" }}
                         resizeMode="cover"
                     />
-                    {/* Gradient overlay */}
                     <View style={{
                         position: "absolute", bottom: 0, left: 0, right: 0, height: 120,
                         backgroundColor: "rgba(0,0,0,0.6)",
                     }} />
-
-                    {/* Back button */}
                     <TouchableOpacity
                         onPress={() => router.back()}
                         style={{
@@ -205,8 +259,6 @@ const handleBuy = async () => {
                     >
                         <Ionicons name="arrow-back" size={22} color="#fff" />
                     </TouchableOpacity>
-
-                    {/* Owned badge */}
                     {owned && (
                         <View style={{
                             position: "absolute", top: 52, right: 16,
@@ -227,10 +279,12 @@ const handleBuy = async () => {
                     </Text>
 
                     {/* Meta row */}
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                        <View style={{ backgroundColor: "#f0f0f0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
-                            <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: "600" }}>{movie.genre}</Text>
-                        </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                        {movie.genre && (
+                            <View style={{ backgroundColor: "#f0f0f0", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
+                                <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: "600" }}>{movie.genre}</Text>
+                            </View>
+                        )}
                         {movie.duration && (
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                                 <Ionicons name="time-outline" size={14} color={COLORS.secondary} />
@@ -259,12 +313,106 @@ const handleBuy = async () => {
                     </View>
 
                     {/* Description */}
-                    <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.primary, marginBottom: 8 }}>
-                        About
-                    </Text>
-                    <Text style={{ fontSize: 14, color: COLORS.secondary, lineHeight: 22 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.primary, marginBottom: 8 }}>About</Text>
+                    <Text style={{ fontSize: 14, color: COLORS.secondary, lineHeight: 22, marginBottom: 24 }}>
                         {movie.description}
                     </Text>
+
+                    {/* ── Reviews section ── */}
+                    <View style={{ borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 20 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                            <Text style={{ fontSize: 15, fontWeight: "600", color: COLORS.primary }}>
+                                Reviews ({reviewsTotal})
+                            </Text>
+                            {owned && (
+                                <TouchableOpacity
+                                    onPress={() => setShowReviewModal(true)}
+                                    style={{
+                                        flexDirection: "row", alignItems: "center", gap: 4,
+                                        backgroundColor: COLORS.accent + "15",
+                                        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+                                    }}
+                                >
+                                    <Ionicons name="create-outline" size={14} color={COLORS.accent} />
+                                    <Text style={{ fontSize: 12, color: COLORS.accent, fontWeight: "600" }}>
+                                        {myReview ? "Edit Review" : "Write Review"}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* My review status */}
+                        {myReview && (
+                            <View style={{
+                                backgroundColor: "#f0f8f0", borderRadius: 10, padding: 12,
+                                marginBottom: 12, borderLeftWidth: 3, borderLeftColor: "#1d9e75",
+                            }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                    <Text style={{ fontSize: 12, fontWeight: "600", color: "#1d9e75" }}>Your Review</Text>
+                                    <View style={{
+                                        backgroundColor: myReview.status === "approved" ? "#1d9e75" : myReview.status === "rejected" ? "#e24b4a" : "#f5a623",
+                                        borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
+                                    }}>
+                                        <Text style={{ fontSize: 10, color: "#fff", fontWeight: "600", textTransform: "uppercase" }}>
+                                            {myReview.status}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <StarRating rating={myReview.rating} readonly size={14} />
+                                {myReview.comment && (
+                                    <Text style={{ fontSize: 13, color: COLORS.secondary, marginTop: 4 }}>
+                                        {myReview.comment}
+                                    </Text>
+                                )}
+                                {myReview.status === "pending" && (
+                                    <Text style={{ fontSize: 11, color: "#f5a623", marginTop: 4 }}>
+                                        Your comment is awaiting admin approval
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Reviews list */}
+                        {reviews.length === 0 ? (
+                            <Text style={{ fontSize: 14, color: COLORS.secondary, textAlign: "center", paddingVertical: 20 }}>
+                                No reviews yet. Be the first to review!
+                            </Text>
+                        ) : (
+                            <>
+                                {reviews.map((review) => (
+                                    <View key={review._id} style={{
+                                        backgroundColor: "#f8f8f8", borderRadius: 10, padding: 12, marginBottom: 10,
+                                    }}>
+                                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.primary }}>{review.userName}</Text>
+                                            <StarRating rating={review.rating} readonly size={12} />
+                                        </View>
+                                        {review.comment && (
+                                            <Text style={{ fontSize: 13, color: COLORS.secondary, lineHeight: 18 }}>
+                                                {review.comment}
+                                            </Text>
+                                        )}
+                                        <Text style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+                                            {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                                                day: "numeric", month: "short", year: "numeric",
+                                            })}
+                                        </Text>
+                                    </View>
+                                ))}
+
+                                {hasMoreReviews && (
+                                    <TouchableOpacity
+                                        onPress={() => fetchReviews(reviewsPage + 1)}
+                                        style={{ alignItems: "center", paddingVertical: 12 }}
+                                    >
+                                        <Text style={{ fontSize: 13, color: COLORS.accent, fontWeight: "600" }}>
+                                            Load more reviews
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </>
+                        )}
+                    </View>
                 </View>
             </ScrollView>
 
@@ -314,37 +462,106 @@ const handleBuy = async () => {
                     </>
                 )}
             </View>
-            {checkingPayment && (
-    <View
-        style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 100,
-        }}
-    >
-        <ActivityIndicator
-            size="large"
-            color={COLORS.accent}
-        />
 
-        <Text
-            style={{
-                color: "#fff",
-                marginTop: 12,
-                fontSize: 14,
-                fontWeight: "600",
-            }}
-        >
-            Verifying payment...
-        </Text>
-    </View>
-)}
+            {/* Payment verifying overlay */}
+            {checkingPayment && (
+                <View style={{
+                    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.7)",
+                    justifyContent: "center", alignItems: "center", zIndex: 100,
+                }}>
+                    <ActivityIndicator size="large" color={COLORS.accent} />
+                    <Text style={{ color: "#fff", marginTop: 12, fontSize: 14, fontWeight: "600" }}>
+                        Verifying payment...
+                    </Text>
+                </View>
+            )}
+
+            {/* Review modal */}
+            <Modal
+                visible={showReviewModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowReviewModal(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={{ flex: 1 }}
+                >
+                    <TouchableOpacity
+                        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+                        activeOpacity={1}
+                        onPress={() => setShowReviewModal(false)}
+                    />
+                    <View style={{
+                        backgroundColor: "#fff",
+                        borderTopLeftRadius: 20, borderTopRightRadius: 20,
+                        padding: 24, paddingBottom: 40,
+                    }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                            <Text style={{ fontSize: 18, fontWeight: "700", color: COLORS.primary }}>
+                                {myReview ? "Edit Your Review" : "Write a Review"}
+                            </Text>
+                            <TouchableOpacity onPress={() => setShowReviewModal(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.secondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Star rating */}
+                        <Text style={{ fontSize: 14, color: COLORS.secondary, marginBottom: 8 }}>
+                            Your Rating <Text style={{ color: "#e24b4a" }}>*</Text>
+                        </Text>
+                        <View style={{ marginBottom: 20 }}>
+                            <StarRating rating={reviewRating} onRate={setReviewRating} size={36} />
+                            {reviewRating > 0 && (
+                                <Text style={{ fontSize: 12, color: COLORS.secondary, marginTop: 6 }}>
+                                    {["", "Poor", "Fair", "Good", "Very Good", "Excellent"][reviewRating]}
+                                </Text>
+                            )}
+                        </View>
+
+                        {/* Comment */}
+                        <Text style={{ fontSize: 14, color: COLORS.secondary, marginBottom: 8 }}>
+                            Comment (optional — requires approval)
+                        </Text>
+                        <TextInput
+                            value={reviewComment}
+                            onChangeText={setReviewComment}
+                            placeholder="Share your thoughts about this movie..."
+                            placeholderTextColor="#bbb"
+                            multiline
+                            numberOfLines={4}
+                            maxLength={1000}
+                            style={{
+                                borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 10,
+                                padding: 12, fontSize: 14, color: COLORS.primary,
+                                textAlignVertical: "top", minHeight: 100,
+                                marginBottom: 8,
+                            }}
+                        />
+                        <Text style={{ fontSize: 11, color: "#bbb", marginBottom: 20, textAlign: "right" }}>
+                            {reviewComment.length}/1000
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={handleSubmitReview}
+                            disabled={submittingReview || reviewRating === 0}
+                            style={{
+                                backgroundColor: reviewRating === 0 ? "#ccc" : COLORS.accent,
+                                borderRadius: 50, paddingVertical: 16, alignItems: "center",
+                            }}
+                        >
+                            {submittingReview ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
+                                    {myReview ? "Update Review" : "Submit Review"}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </View>
     );
 }

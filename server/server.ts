@@ -11,6 +11,7 @@ import purchaseRoutes from "./routes/purchaseRoutes.js";
 import streamRoutes from "./routes/streamRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -67,6 +68,7 @@ app.use("/api/purchases", purchaseRoutes);
 app.use("/api/stream", streamRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 // 404 handler
 app.use((req, res) => {

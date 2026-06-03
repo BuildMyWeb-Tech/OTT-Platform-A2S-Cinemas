@@ -53,19 +53,90 @@ export const getMyLicenses = async (req: Request, res: Response) => {
 // GET /api/license/all — Admin
 export const getAllLicenses = async (req: Request, res: Response) => {
     try {
-        const { page = 1, limit = 20, status } = req.query;
-        const licenses = await License.find()
-            .populate("user", "name email")
-            .populate("movie", "title price")
-            .sort("-createdAt")
-            .skip((Number(page) - 1) * Number(limit))
-            .limit(Number(limit));
+        const { page = 1, limit = 15, search, status, sort } = req.query;
+        const p = Math.max(1, Number(page));
+        const l = Math.min(50, Number(limit));
 
-        const total = await License.countDocuments();
+        // Build aggregation pipeline to support search across populated user/movie fields
+        const pipeline: any[] = [];
+
+        // Lookups for search
+        pipeline.push(
+            { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userObj" } },
+            { $lookup: { from: "movies", localField: "movie", foreignField: "_id", as: "movieObj" } },
+            { $unwind: { path: "$userObj", preserveNullAndEmpty: true } },
+            { $unwind: { path: "$movieObj", preserveNullAndEmpty: true } }
+        );
+
+        const match: any = {};
+
+        // Status filter
+        if (status === "revoked") {
+            match.isRevoked = true;
+        } else if (status === "active") {
+            match.isRevoked = false;
+            match.expiryDate = { $gt: new Date() };
+        } else if (status === "expired") {
+            match.isRevoked = false;
+            match.expiryDate = { $lte: new Date() };
+        }
+
+        // Search — single character or full string
+        if (search && String(search).trim()) {
+            const rx = new RegExp(String(search).trim(), "i");
+            match.$or = [
+                { "userObj.name": rx },
+                { "userObj.email": rx },
+                { "movieObj.title": rx },
+            ];
+        }
+
+        if (Object.keys(match).length > 0) pipeline.push({ $match: match });
+
+        // Sort
+        if (sort === "expiring") {
+            pipeline.push({ $sort: { expiryDate: 1 } });
+        } else {
+            pipeline.push({ $sort: { createdAt: -1 } });
+        }
+
+        // Count total before pagination
+        const countPipeline = [...pipeline, { $count: "total" }];
+        const countResult = await License.aggregate(countPipeline);
+        const total = countResult[0]?.total ?? 0;
+
+        // Paginate
+        pipeline.push({ $skip: (p - 1) * l }, { $limit: l });
+
+        // Project — reshape to match populated format
+        pipeline.push({
+            $project: {
+                _id: 1,
+                expiryDate: 1,
+                isRevoked: 1,
+                createdAt: 1,
+                user: {
+                    _id: "$userObj._id",
+                    name: "$userObj.name",
+                    email: "$userObj.email",
+                },
+                movie: {
+                    _id: "$movieObj._id",
+                    title: "$movieObj.title",
+                },
+            },
+        });
+
+        const licenses = await License.aggregate(pipeline);
+
         res.json({
             success: true,
             data: licenses,
-            pagination: { total, page: Number(page), pages: Math.ceil(total / Number(limit)) },
+            pagination: {
+                total,
+                page: p,
+                pages: Math.ceil(total / l),
+            },
         });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
