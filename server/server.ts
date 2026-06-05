@@ -23,6 +23,7 @@ app.use(cors({
         "http://localhost:8081",        // expo web
         "http://192.168.1.10:3001",    // admin panel via IP
         "http://192.168.1.10:8081",    // expo web via IP
+        "https://ott-platform-a2-s-cinemas.vercel.app",
     ],
     credentials: true,
 }));
