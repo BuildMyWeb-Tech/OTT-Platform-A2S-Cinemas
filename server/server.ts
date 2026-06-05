@@ -19,11 +19,10 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
     origin: [
-        "http://localhost:3001",        // admin panel
-        "http://localhost:8081",        // expo web
-        "http://192.168.1.10:3001",    // admin panel via IP
-        "http://192.168.1.10:8081",    // expo web via IP
+        "http://localhost:3001",
+        "http://localhost:8081",
         "https://ott-platform-a2-s-cinemas.vercel.app",
+        "https://ott-platform-a2s-cinemas.vercel.app"
     ],
     credentials: true,
 }));

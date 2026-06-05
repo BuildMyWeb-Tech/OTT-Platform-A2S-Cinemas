@@ -189,9 +189,8 @@ export const servePaymentPage = async (req: Request, res: Response) => {
     const { orderId } = req.params;
     const { amount, currency, key, movieTitle, movieId } = req.query;
 
-    const serverIp = process.env.SERVER_IP || "192.168.1.10";
-    const port = process.env.PORT || "5000";
-    const callbackUrl = `http://${serverIp}:${port}/api/payment/callback`;
+    const baseUrl = process.env.BASE_URL || "https://ott-platform-a2s-cinemas.onrender.com/api";
+    const callbackUrl = `${baseUrl}/payment/callback`;
     const displayAmount = Math.round(Number(amount) / 100);
 
     const html = `<!DOCTYPE html>

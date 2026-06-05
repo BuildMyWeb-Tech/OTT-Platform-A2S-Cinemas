@@ -175,12 +175,15 @@ export default function MovieDetail() {
             }
 
             const { orderId, amount, currency, key } = orderRes.data.data;
-            const serverIp = process.env.EXPO_PUBLIC_SERVER_IP || "192.168.1.10";
-            const port = process.env.EXPO_PUBLIC_API_PORT || "5000";
-            const payUrl =
-                `http://${serverIp}:${port}/api/payment/pay/${orderId}` +
-                `?amount=${amount}&currency=${currency || "INR"}&key=${key}` +
-                `&movieTitle=${encodeURIComponent(movie?.title || "")}&movieId=${id}`;
+           const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+
+const payUrl =
+  `${baseUrl}/payment/pay/${orderId}` +
+  `?amount=${amount}` +
+  `&currency=${currency || "INR"}` +
+  `&key=${key}` +
+  `&movieTitle=${encodeURIComponent(movie?.title || "")}` +
+  `&movieId=${id}`;
 
             await WebBrowser.openBrowserAsync(payUrl, { dismissButtonStyle: "close" });
 
