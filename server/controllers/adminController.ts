@@ -10,6 +10,7 @@ import path from "path";
 import mongoose from "mongoose";
 import Review from "../models/Review.js";
 
+
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     // Run ALL counts in parallel — this is what caused the 49s timeout
@@ -92,33 +93,45 @@ export const getUploadUrl = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "fileName and fileType required" });
     }
 
-    // Allowed video types only
     const allowedTypes = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/mpeg"];
     if (!allowedTypes.includes(fileType)) {
       return res.status(400).json({ success: false, message: "Only video files allowed (mp4, mov, avi)" });
     }
 
-    // Generate unique key to avoid overwrites
     const ext = path.extname(fileName);
     const key = `${folder}/${uuidv4()}${ext}`;
 
-  const command = new PutObjectCommand({
-  Bucket: process.env.S3_BUCKET_NAME!,
-  Key: key,
-  ContentType: fileType,
-  ChecksumAlgorithm: undefined,  // explicitly disable checksum
-});
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: key,
+      ContentType: fileType,
+      // Explicitly set no checksum algorithm
+      ChecksumAlgorithm: undefined,
+    });
 
-const uploadUrl = await getSignedUrl(s3, command, {
-  expiresIn: 900,
-  unhoistableHeaders: new Set(["x-amz-checksum-crc32", "x-amz-sdk-checksum-algorithm"]),
-});
+    // Remove checksum headers from the presigned URL
+    const uploadUrl = await getSignedUrl(s3, command, {
+      expiresIn: 900,
+      // This tells the presigner to not include checksum headers in the signature
+      signableHeaders: new Set(["content-type"]),
+      unhoistableHeaders: new Set([
+        "x-amz-checksum-crc32",
+        "x-amz-sdk-checksum-algorithm",
+        "x-amz-checksum-algorithm",
+      ]),
+    });
+
+    // Strip any remaining checksum params from the URL before returning
+    const cleanUrl = new URL(uploadUrl);
+    cleanUrl.searchParams.delete("x-amz-checksum-crc32");
+    cleanUrl.searchParams.delete("x-amz-sdk-checksum-algorithm");
+    cleanUrl.searchParams.delete("x-amz-checksum-algorithm");
 
     return res.json({
       success: true,
       data: {
-        uploadUrl,
-        key, // This is what gets saved as movie.videoKey in MongoDB
+        uploadUrl: cleanUrl.toString(),
+        key,
       },
     });
   } catch (error: any) {
