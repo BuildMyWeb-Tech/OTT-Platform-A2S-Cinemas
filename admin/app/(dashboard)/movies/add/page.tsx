@@ -86,8 +86,8 @@ export default function AddMoviePage() {
                 xhr.onload = () => xhr.status === 200 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`));
                 xhr.onerror = () => reject(new Error("Network error"));
                 xhr.open("PUT", uploadUrl);
-                // Do NOT set Content-Type — the presigned URL handles it
-                xhr.send(file);
+xhr.setRequestHeader("Content-Type", file.type);  // MUST match what was signed
+xhr.send(file);
             });
             setVideo((v) => ({ ...v, url: key, uploading: false, progress: 100 }));
         } catch (err: any) { setVideo((v) => ({ ...v, uploading: false, error: err.message })); }
