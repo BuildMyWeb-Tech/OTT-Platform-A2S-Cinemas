@@ -5,44 +5,43 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-
     "scheme": "a2scinemas",
-
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
     "ios": {
       "bundleIdentifier": "com.a2scinemas.app"
     },
-
     "android": {
       "package": "com.a2scinemas.app",
       "intentFilters": [
-       {
+        {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "a2scinemas" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "a2scinemas"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
-
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
-
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro"
     },
-
     "plugins": [
       "expo-router",
       [
@@ -61,17 +60,16 @@
       "expo-video",
       "expo-web-browser"
     ],
-
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
-
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4ba9ef58-7c54-4258-a4d5-fe13f078935c"
+        "projectId": "ce4fc097-be0b-4c11-b7d0-5853c667cb2c"
       }
-    }
+    },
+    "owner": "ott-platform"
   }
 }

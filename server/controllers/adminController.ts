@@ -80,6 +80,8 @@ const s3 = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 export const getUploadUrl = async (req: Request, res: Response) => {
@@ -100,14 +102,17 @@ export const getUploadUrl = async (req: Request, res: Response) => {
     const ext = path.extname(fileName);
     const key = `${folder}/${uuidv4()}${ext}`;
 
-    const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME!,
-      Key: key,
-      ContentType: fileType,
-    });
+  const command = new PutObjectCommand({
+  Bucket: process.env.S3_BUCKET_NAME!,
+  Key: key,
+  ContentType: fileType,
+  ChecksumAlgorithm: undefined,  // explicitly disable checksum
+});
 
-    // Presigned URL expires in 15 minutes — enough time to upload large files
-    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+const uploadUrl = await getSignedUrl(s3, command, {
+  expiresIn: 900,
+  unhoistableHeaders: new Set(["x-amz-checksum-crc32", "x-amz-sdk-checksum-algorithm"]),
+});
 
     return res.json({
       success: true,
