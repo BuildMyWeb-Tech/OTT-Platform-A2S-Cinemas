@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import License from "../models/License.js";
 import Purchase from "../models/Purchase.js";
-
+import User from "../models/User.js";
+import Movie from "../models/Movie.js";
 // GET /api/license/check/:movieId
 export const checkLicense = async (req: Request, res: Response) => {
     try {
@@ -57,77 +58,51 @@ export const getAllLicenses = async (req: Request, res: Response) => {
         const p = Math.max(1, Number(page));
         const l = Math.min(50, Number(limit));
 
-        // Build aggregation pipeline to support search across populated user/movie fields
-        const pipeline: any[] = [];
+        // Build base query — simpler approach using populate instead of aggregation
+        const query: any = {};
 
-        // Lookups for search
-        pipeline.push(
-            { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userObj" } },
-            { $lookup: { from: "movies", localField: "movie", foreignField: "_id", as: "movieObj" } },
-            { $unwind: { path: "$userObj", preserveNullAndEmpty: true } },
-            { $unwind: { path: "$movieObj", preserveNullAndEmpty: true } }
-        );
-
-        const match: any = {};
-
-        // Status filter
         if (status === "revoked") {
-            match.isRevoked = true;
+            query.isRevoked = true;
         } else if (status === "active") {
-            match.isRevoked = false;
-            match.expiryDate = { $gt: new Date() };
+            query.isRevoked = false;
+            query.expiryDate = { $gt: new Date() };
         } else if (status === "expired") {
-            match.isRevoked = false;
-            match.expiryDate = { $lte: new Date() };
+            query.isRevoked = false;
+            query.expiryDate = { $lte: new Date() };
         }
 
-        // Search — single character or full string
+        // Sort
+        const sortObj: any = sort === "expiring"
+            ? { expiryDate: 1 }
+            : { createdAt: -1 };
+
+        // If search — need to find user/movie IDs first
         if (search && String(search).trim()) {
             const rx = new RegExp(String(search).trim(), "i");
-            match.$or = [
-                { "userObj.name": rx },
-                { "userObj.email": rx },
-                { "movieObj.title": rx },
+
+            const [matchingUsers, matchingMovies] = await Promise.all([
+                User.find({ $or: [{ name: rx }, { email: rx }] }).select("_id"),
+                Movie.find({ title: rx }).select("_id"),
+            ]);
+
+            const userIds = matchingUsers.map(u => u._id);
+            const movieIds = matchingMovies.map(m => m._id);
+
+            query.$or = [
+                { user: { $in: userIds } },
+                { movie: { $in: movieIds } },
             ];
         }
 
-        if (Object.keys(match).length > 0) pipeline.push({ $match: match });
-
-        // Sort
-        if (sort === "expiring") {
-            pipeline.push({ $sort: { expiryDate: 1 } });
-        } else {
-            pipeline.push({ $sort: { createdAt: -1 } });
-        }
-
-        // Count total before pagination
-        const countPipeline = [...pipeline, { $count: "total" }];
-        const countResult = await License.aggregate(countPipeline);
-        const total = countResult[0]?.total ?? 0;
-
-        // Paginate
-        pipeline.push({ $skip: (p - 1) * l }, { $limit: l });
-
-        // Project — reshape to match populated format
-        pipeline.push({
-            $project: {
-                _id: 1,
-                expiryDate: 1,
-                isRevoked: 1,
-                createdAt: 1,
-                user: {
-                    _id: "$userObj._id",
-                    name: "$userObj.name",
-                    email: "$userObj.email",
-                },
-                movie: {
-                    _id: "$movieObj._id",
-                    title: "$movieObj.title",
-                },
-            },
-        });
-
-        const licenses = await License.aggregate(pipeline);
+        const [total, licenses] = await Promise.all([
+            License.countDocuments(query),
+            License.find(query)
+                .populate("user", "name email")
+                .populate("movie", "title")
+                .sort(sortObj)
+                .skip((p - 1) * l)
+                .limit(l),
+        ]);
 
         res.json({
             success: true,
@@ -139,6 +114,7 @@ export const getAllLicenses = async (req: Request, res: Response) => {
             },
         });
     } catch (error: any) {
+        console.error("getAllLicenses error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
