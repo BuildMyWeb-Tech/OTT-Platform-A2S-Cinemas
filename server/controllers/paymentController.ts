@@ -125,7 +125,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
 // POST + GET /api/payment/callback — called by Razorpay JS handler
 export const handlePaymentCallback = async (req: Request, res: Response) => {
     try {
-        const appScheme = "client";
+        const appScheme = "a2scinemas";
 
         // GET = cancel from browser URL
         if (req.method === "GET") {
