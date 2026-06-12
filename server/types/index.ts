@@ -144,8 +144,11 @@ export interface ILicense extends Document {
     purchase: mongoose.Types.ObjectId;
     expiryDate: Date;
     isRevoked: boolean;
+    lastWatched?: Date;       // ← ADD
+    watchCount?: number;      // ← ADD
     isValid(): boolean;
 }
+
 export interface Review {
     _id: string;
     rating: number;

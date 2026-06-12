@@ -3,9 +3,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator, Alert, StatusBar,
-    Text, TouchableOpacity, View
+    Text, TouchableOpacity, View, PanResponder, Dimensions
 } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { useEvent } from "expo";
 import api from "@/constants/api";
 import { COLORS } from "@/constants";
 
@@ -18,6 +19,7 @@ export default function Player() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showControls, setShowControls] = useState(true);
+    const [isBuffering, setIsBuffering] = useState(false);
 
     useEffect(() => {
         if (id) fetchStreamUrl();
@@ -25,7 +27,6 @@ export default function Player() {
 
     const fetchStreamUrl = async () => {
         try {
-            // Step 1: check license
             const licenseRes = await api.get(`/license/check/${id}`);
             if (!licenseRes.data.hasAccess) {
                 Alert.alert(
@@ -40,18 +41,14 @@ export default function Player() {
             }
             setLicenseExpiry(licenseRes.data.expiresAt);
 
-            // Step 2: try stream endpoint
             try {
                 const streamRes = await api.get(`/stream/${id}`);
                 if (streamRes.data.success && streamRes.data.data?.streamUrl) {
                     setStreamUrl(streamRes.data.data.streamUrl);
                     return;
                 }
-            } catch {
-                // Stream endpoint failed (no CloudFront configured) — fall back to trailer
-            }
+            } catch {}
 
-            // Step 3: fallback — get movie trailerUrl for testing
             try {
                 const movieRes = await api.get(`/movies/${id}`);
                 const trailerUrl = movieRes.data.data?.trailerUrl;
@@ -59,9 +56,7 @@ export default function Player() {
                     setStreamUrl(trailerUrl);
                     return;
                 }
-            } catch {
-                // ignore
-            }
+            } catch {}
 
             setError("Video not available. AWS CloudFront not configured.");
         } catch (err: any) {
@@ -88,11 +83,42 @@ export default function Player() {
         if (streamUrl) p.play();
     });
 
+    // Track playback position
+    const { currentTime = 0 } = useEvent(player, "timeUpdate") ?? {};
+    const duration = player?.duration ?? 0;
+
+    // Track buffering / waiting state
+    const status = useEvent(player, "statusChange");
+    useEffect(() => {
+        if (status?.status === "loading") setIsBuffering(true);
+        else setIsBuffering(false);
+    }, [status]);
+
     useEffect(() => {
         if (!showControls) return;
         const t = setTimeout(() => setShowControls(false), 3000);
         return () => clearTimeout(t);
     }, [showControls]);
+
+    const formatTime = (seconds: number) => {
+        if (!seconds || !isFinite(seconds)) return "0:00";
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, "0")}`;
+    };
+
+    const seekBy = (deltaSeconds: number) => {
+        if (!player) return;
+        const newTime = Math.max(0, Math.min(duration, currentTime + deltaSeconds));
+        player.currentTime = newTime;
+        setShowControls(true);
+    };
+
+    const seekTo = (fraction: number) => {
+        if (!player || !duration) return;
+        const newTime = Math.max(0, Math.min(duration, fraction * duration));
+        player.currentTime = newTime;
+    };
 
     if (loading) {
         return (
@@ -125,6 +151,25 @@ export default function Player() {
         );
     }
 
+    const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+    const screenWidth = Dimensions.get("window").width;
+
+    const seekBarResponder = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderMove: (evt) => {
+            const x = evt.nativeEvent.locationX;
+            const fraction = Math.max(0, Math.min(1, x / (screenWidth - 32)));
+            seekTo(fraction);
+            setShowControls(true);
+        },
+        onPanResponderRelease: (evt) => {
+            const x = evt.nativeEvent.locationX;
+            const fraction = Math.max(0, Math.min(1, x / (screenWidth - 32)));
+            seekTo(fraction);
+        },
+    });
+
     return (
         <View style={{ flex: 1, backgroundColor: "#000" }}>
             <StatusBar hidden />
@@ -140,6 +185,15 @@ export default function Player() {
                     allowsPictureInPicture
                     contentFit="contain"
                 />
+
+                {isBuffering && (
+                    <View style={{
+                        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                        justifyContent: "center", alignItems: "center",
+                    }}>
+                        <ActivityIndicator size="large" color={COLORS.accent} />
+                    </View>
+                )}
 
                 {showControls && (
                     <View style={{
@@ -160,8 +214,20 @@ export default function Player() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Centre play/pause */}
-                        <View style={{ alignItems: "center" }}>
+                        {/* Centre controls — play/pause + seek ±10s */}
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32 }}>
+                            <TouchableOpacity
+                                onPress={() => seekBy(-10)}
+                                style={{
+                                    width: 48, height: 48, borderRadius: 24,
+                                    backgroundColor: "rgba(0,0,0,0.5)",
+                                    justifyContent: "center", alignItems: "center",
+                                }}
+                            >
+                                <Ionicons name="play-back" size={24} color="#fff" />
+                                <Text style={{ color: "#fff", fontSize: 8, position: "absolute", bottom: 6 }}>10</Text>
+                            </TouchableOpacity>
+
                             <TouchableOpacity
                                 onPress={() => {
                                     if (player.playing) player.pause();
@@ -176,12 +242,46 @@ export default function Player() {
                             >
                                 <Ionicons name={player.playing ? "pause" : "play"} size={32} color="#fff" />
                             </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => seekBy(10)}
+                                style={{
+                                    width: 48, height: 48, borderRadius: 24,
+                                    backgroundColor: "rgba(0,0,0,0.5)",
+                                    justifyContent: "center", alignItems: "center",
+                                }}
+                            >
+                                <Ionicons name="play-forward" size={24} color="#fff" />
+                                <Text style={{ color: "#fff", fontSize: 8, position: "absolute", bottom: 6 }}>10</Text>
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Bottom */}
+                        {/* Bottom — seek bar + time */}
                         <View style={{ padding: 16, paddingBottom: 32 }}>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                                <Text style={{ color: "#fff", fontSize: 12 }}>{formatTime(currentTime)}</Text>
+                                <Text style={{ color: "#fff", fontSize: 12 }}>{formatTime(duration)}</Text>
+                            </View>
+                            <View
+                                {...seekBarResponder.panHandlers}
+                                style={{ height: 24, justifyContent: "center" }}
+                            >
+                                <View style={{ height: 4, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 2 }}>
+                                    <View style={{
+                                        height: 4, width: `${progressPct}%`,
+                                        backgroundColor: COLORS.accent, borderRadius: 2,
+                                    }} />
+                                </View>
+                                <View style={{
+                                    position: "absolute",
+                                    left: `${progressPct}%`,
+                                    width: 12, height: 12, borderRadius: 6,
+                                    backgroundColor: COLORS.accent,
+                                    marginLeft: -6,
+                                }} />
+                            </View>
                             {licenseExpiry && (
-                                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textAlign: "center" }}>
+                                <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textAlign: "center", marginTop: 12 }}>
                                     License expires {new Date(licenseExpiry).toLocaleDateString()}
                                 </Text>
                             )}
