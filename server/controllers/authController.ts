@@ -16,18 +16,43 @@ const signToken = (id: string) => {
     );
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const register = async (req: Request, res: Response) => {
     try {
         const { name, email, password } = req.body;
 
-        if (!name || !email || !password) {
+        // Reject non-string inputs — blocks NoSQL injection via object operators
+        if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
+            return res.status(400).json({ success: false, message: "Invalid input" });
+        }
+
+        if (!name.trim() || !email.trim() || !password) {
             return res.status(400).json({
                 success: false,
                 message: "All fields required",
             });
         }
 
-        const existing = await User.findOne({ email });
+        // Validate email format
+        if (!EMAIL_REGEX.test(email.trim())) {
+            return res.status(400).json({
+                success: false,
+                message: "Enter a valid email address",
+            });
+        }
+
+        // Validate password strength
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters",
+            });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        const existing = await User.findOne({ email: normalizedEmail });
 
         if (existing) {
             return res.status(400).json({
@@ -37,8 +62,8 @@ export const register = async (req: Request, res: Response) => {
         }
 
         const user = await User.create({
-            name,
-            email,
+            name: name.trim(),
+            email: normalizedEmail,
             password,
         });
 
@@ -68,10 +93,16 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password)
+
+        // Reject non-string inputs — blocks NoSQL injection via object operators like { $gt: "" }
+        if (typeof email !== "string" || typeof password !== "string") {
+            return res.status(400).json({ success: false, message: "Invalid input" });
+        }
+
+        if (!email.trim() || !password)
             return res.status(400).json({ success: false, message: "Email and password required" });
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
         if (!user || !(await user.comparePassword(password)))
             return res.status(401).json({ success: false, message: "Invalid credentials" });
 
@@ -98,15 +129,25 @@ export const getMe = async (req: Request, res: Response) => {
     }
 };
 
-// In authController.ts — replace updateProfile:
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { name, image } = req.body; // only allow name and image — never password here
+        const { name, image } = req.body;
+
+        // Validate name if provided
+        if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+            return res.status(400).json({ success: false, message: "Name cannot be empty" });
+        }
+
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name.trim();
+        if (image !== undefined) updateData.image = image;
+
         const user = await User.findByIdAndUpdate(
             req.user._id,
-            { $set: { name, image } }, // use $set to be explicit
-            { new: true, runValidators: false } // runValidators: false prevents password re-validation
+            { $set: updateData },
+            { new: true, runValidators: false }
         ).select("-password");
+
         res.json({ success: true, data: user });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });

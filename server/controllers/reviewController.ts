@@ -71,8 +71,8 @@ export const createReview = async (req: Request, res: Response) => {
 
         // Sanitize comment — strip HTML tags to prevent XSS
         const sanitizedComment = comment
-            ? String(comment).replace(/<[^>]*>/g, "").trim().slice(0, 1000)
-            : undefined;
+        ? String(comment).replace(/<[^>]*>/g, "").trim().slice(0, 1000)
+        : undefined;
 
         // Check if review already exists
         const existing = await Review.findOne({ movieId, userId });
