@@ -11,6 +11,9 @@ import { Movie } from "@/constants/types";
 import { COLORS, getCategoryIcon } from "@/constants";
 import { useLicense } from "@/context/LicenseContext";
 import MovieCard from "@/components/MovieCard";
+import { useRef } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 
 const { width } = Dimensions.get("window");
 
@@ -23,6 +26,10 @@ interface Category {
 export default function Home() {
     const router = useRouter();
     const { hasLicense, getDaysLeft } = useLicense();
+    const bannerScrollRef = useRef<ScrollView>(null);
+    const [notifications, setNotifications] = useState<any[]>([]);
+const [showNotifications, setShowNotifications] = useState(false);
+const [readIds, setReadIds] = useState<string[]>([]);
 
     const [featuredMovies, setFeaturedMovies] = useState<Movie[]>([]);
     const [allMovies, setAllMovies] = useState<Movie[]>([]);
@@ -30,9 +37,23 @@ export default function Home() {
     const [loading, setLoading] = useState(true);
     const [bannerIndex, setBannerIndex] = useState(0);
 
-    useEffect(() => {
+   useFocusEffect(
+    useCallback(() => {
         fetchData();
-    }, []);
+    }, [])
+);
+
+    useEffect(() => {
+    if (featuredMovies.length <= 1) return;
+    const interval = setInterval(() => {
+        setBannerIndex((prev) => {
+            const next = (prev + 1) % featuredMovies.length;
+            bannerScrollRef.current?.scrollTo({ x: next * width, animated: true });
+            return next;
+        });
+    }, 3000);
+    return () => clearInterval(interval);
+}, [featuredMovies.length]);
 
     const fetchData = async () => {
         try {
@@ -41,6 +62,8 @@ export default function Home() {
                 api.get("/movies?limit=12"),
                 api.get("/categories"),
             ]);
+            const notifRes = await api.get("/notifications");
+setNotifications(notifRes.data.data || []);
             setFeaturedMovies(featuredRes.data.data || []);
             setAllMovies(allRes.data.data || []);
             setCategories(categoriesRes.data.data || []);
@@ -54,27 +77,33 @@ export default function Home() {
     return (
         <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
             {/* Header */}
-            <View className="flex-row justify-between items-center px-4 py-3">
-                <Text style={{ fontSize: 22, fontWeight: "700", color: COLORS.accent }}>🎬 A2S Cinemas</Text>
-                <TouchableOpacity onPress={() => router.push("/browse")}>
-                    <Ionicons name="search-outline" size={24} color={COLORS.primary} />
-                </TouchableOpacity>
-            </View>
+            <View className="flex-row items-center gap-3">
+    <TouchableOpacity onPress={() => setShowNotifications(true)} style={{ position: "relative" }}>
+        <Ionicons name="notifications-outline" size={24} color={COLORS.primary} />
+        {notifications.filter(n => !readIds.includes(n._id)).length > 0 && (
+            <View style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent }} />
+        )}
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => router.push("/browse")}>
+        <Ionicons name="search-outline" size={24} color={COLORS.primary} />
+    </TouchableOpacity>
+</View>
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {/* Featured Banner */}
                 {featuredMovies.length > 0 && (
                     <View className="mb-6">
                         <ScrollView
-                            horizontal
-                            pagingEnabled
-                            showsHorizontalScrollIndicator={false}
-                            onScroll={(e) => {
-                                const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
-                                setBannerIndex(slide);
-                            }}
-                            scrollEventThrottle={16}
-                        >
+    ref={bannerScrollRef}
+    horizontal
+    pagingEnabled
+    showsHorizontalScrollIndicator={false}
+    onScroll={(e) => {
+        const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
+        setBannerIndex(slide);
+    }}
+    scrollEventThrottle={16}
+>
                             {featuredMovies.map((movie) => (
                                 <TouchableOpacity
                                     key={movie._id}

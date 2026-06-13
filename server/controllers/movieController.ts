@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Movie from "../models/Movie.js";
 import Category from "../models/Category.js";          // ← ADD THIS LINE
 import { deleteFromS3 } from "../config/s3.js";
+import Notification from "../models/Notification.js"
 
 const validGenres = [
     "Action", "Drama", "Comedy", "Thriller", "Horror",
@@ -194,6 +195,13 @@ export const createMovie = async (req: Request, res: Response) => {
 
         // Populate categories for response
         await movie.populate("categories", "name slug");
+
+// Create notification for new movie
+        await Notification.create({
+            title: "New Movie Added!",
+            message: `${movie.title} is now available to watch.`,
+            movieId: movie._id,
+        });
 
         const movieResponse = movie.toObject();
         delete (movieResponse as any).videoKey;

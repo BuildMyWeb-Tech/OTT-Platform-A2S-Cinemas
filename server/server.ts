@@ -12,6 +12,7 @@ import streamRoutes from "./routes/streamRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,7 +27,10 @@ app.use(cors({
     ],
     credentials: true,
 }));
-app.use(express.json());
+
+// Body size limit — prevents large-payload DoS (TC-S11-014)
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Debug middleware
 app.use((req, _res, next) => {
@@ -69,11 +73,43 @@ app.use("/api/stream", streamRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/notifications", notificationRoutes);
 
-// 404 handler
+// 404 handler — clean JSON, no internals exposed
 app.use((req, res) => {
-    console.log("404 HIT:", req.originalUrl);
-    res.status(404).send(`Cannot ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ success: false, message: "Route not found" });
+});
+
+// Global error handler — MUST be last, 4 args required for Express to recognize it
+// Catches: body-parser errors (oversized/malformed JSON), thrown errors from async
+// handlers wrapped in try/catch that call next(err), and any uncaught sync errors.
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Oversized payload from express.json() limit
+    if (err.type === "entity.too.large") {
+        return res.status(413).json({ success: false, message: "Request payload too large" });
+    }
+
+    // Malformed JSON body
+    if (err.type === "entity.parse.failed" || err instanceof SyntaxError) {
+        return res.status(400).json({ success: false, message: "Invalid JSON in request body" });
+    }
+
+    // Mongoose CastError (bad ObjectId) — should be caught in controllers,
+    // but this is a safety net
+    if (err.name === "CastError") {
+        return res.status(400).json({ success: false, message: "Invalid ID format" });
+    }
+
+    // Mongoose ValidationError
+    if (err.name === "ValidationError") {
+        return res.status(400).json({ success: false, message: err.message });
+    }
+
+    // Log full error server-side for debugging — never sent to client
+    console.error("Unhandled error:", err);
+
+    // Generic 500 — no stack trace, no internal details in response
+    res.status(500).json({ success: false, message: "Internal server error" });
 });
 
 // Start server

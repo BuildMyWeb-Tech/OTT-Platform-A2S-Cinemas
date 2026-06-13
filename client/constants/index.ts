@@ -14,7 +14,9 @@ export const COLORS = {
 export const PROFILE_MENU = [
     { id: 1, title: "My Library", icon: "library-outline", route: "/(tabs)/library" },
     { id: 2, title: "Purchase History", icon: "receipt-outline", route: "/purchases" },
-    { id: 3, title: "Settings", icon: "settings-outline", route: "/" },
+    { id: 3, title: "Privacy Policy", icon: "shield-checkmark-outline", route: "/support/privacy" },
+    { id: 4, title: "Refund Policy", icon: "cash-outline", route: "/support/refund" },
+    { id: 5, title: "Terms & Conditions", icon: "document-text-outline", route: "/support/terms" },
 ];
 
 export const LICENSE_STATUS_COLOR = (daysLeft: number, isActive: boolean) => {

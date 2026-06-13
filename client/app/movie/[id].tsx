@@ -13,6 +13,8 @@ import { COLORS } from "@/constants";
 import { Movie, Review, MyReview } from "@/constants/types";
 import { useAuth } from "@/context/AuthContext";
 import { useLicense } from "@/context/LicenseContext";
+import Toast from "react-native-toast-message";
+import RazorpayCheckout from "react-native-razorpay";
 
 const { width } = Dimensions.get("window");
 
@@ -119,9 +121,9 @@ export default function MovieDetail() {
         }
     };
 
-    const handleSubmitReview = async () => {
+   const handleSubmitReview = async () => {
         if (reviewRating === 0) {
-            Alert.alert("Rating required", "Please select a star rating.");
+            Toast.show({ type: "error", text1: "Rating required", text2: "Please select a star rating." });
             return;
         }
 
@@ -136,25 +138,86 @@ export default function MovieDetail() {
             setShowReviewModal(false);
             await fetchMyReview();
             await fetchReviews(1);
-            await fetchMovie(); // refresh rating average
+            await fetchMovie();
 
-            Alert.alert(
-                "Review submitted",
-                reviewComment.trim()
-                    ? "Your rating is live. Your comment is pending admin approval."
-                    : "Your rating has been saved."
-            );
+            Toast.show({ type: "success", text1: "Review submitted successfully" });
         } catch (error: any) {
-            Alert.alert(
-                "Failed",
-                error.response?.data?.message || "Could not submit review"
-            );
+            Toast.show({
+                type: "error",
+                text1: "Failed",
+                text2: error.response?.data?.message || "Could not submit review",
+            });
         } finally {
             setSubmittingReview(false);
         }
     };
+//Removed HTML Render Pages 
+//     const handleBuy = async () => {
+//         if (!isSignedIn) {
+//             return Alert.alert(
+//                 "Sign in required",
+//                 "Please sign in to purchase movies",
+//                 [
+//                     { text: "Sign In", onPress: () => router.push("/sign-in") },
+//                     { text: "Cancel", style: "cancel" },
+//                 ]
+//             );
+//         }
 
-    const handleBuy = async () => {
+//         setBuyLoading(true);
+//         try {
+//             const orderRes = await api.post("/payment/create-order", { movieId: id });
+//             if (!orderRes.data.success) {
+//                 Alert.alert("Error", orderRes.data.message || "Failed to create order");
+//                 return;
+//             }
+
+//             const { orderId, amount, currency, key } = orderRes.data.data;
+//            const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+
+// const payUrl =
+//   `${baseUrl}/payment/pay/${orderId}` +
+//   `?amount=${amount}` +
+//   `&currency=${currency || "INR"}` +
+//   `&key=${key}` +
+//   `&movieTitle=${encodeURIComponent(movie?.title || "")}` +
+//   `&movieId=${id}`;
+
+//             await WebBrowser.openBrowserAsync(payUrl, { dismissButtonStyle: "close" });
+
+//             setCheckingPayment(true);
+//             let attempts = 0;
+
+//             const poll = async () => {
+//                 while (attempts < 6) {
+//                     try {
+//                         const res = await api.get(`/license/check/${id}`);
+//                         if (res.data.hasAccess === true) {
+//                             await fetchLicenses();
+//                             await fetchMovie();
+//                             router.replace({
+//                                 pathname: "/payment/callback",
+//                                 params: { status: "success", movie_id: id as string },
+//                             } as any);
+//                             return;
+//                         }
+//                     } catch {}
+//                     attempts++;
+//                     await new Promise((r) => setTimeout(r, 1000));
+//                 }
+//                 Alert.alert("Payment not completed", "You can try again anytime.");
+//             };
+
+//             await poll();
+//         } catch (error: any) {
+//             Alert.alert("Payment failed", "Something went wrong. Please try again.");
+//         } finally {
+//             setCheckingPayment(false);
+//             setBuyLoading(false);
+//         }
+//     };
+
+ const handleBuy = async () => {
         if (!isSignedIn) {
             return Alert.alert(
                 "Sign in required",
@@ -170,49 +233,50 @@ export default function MovieDetail() {
         try {
             const orderRes = await api.post("/payment/create-order", { movieId: id });
             if (!orderRes.data.success) {
-                Alert.alert("Error", orderRes.data.message || "Failed to create order");
+                Toast.show({ type: "error", text1: "Error", text2: orderRes.data.message || "Failed to create order" });
                 return;
             }
 
             const { orderId, amount, currency, key } = orderRes.data.data;
-           const baseUrl = process.env.EXPO_PUBLIC_API_URL;
 
-const payUrl =
-  `${baseUrl}/payment/pay/${orderId}` +
-  `?amount=${amount}` +
-  `&currency=${currency || "INR"}` +
-  `&key=${key}` +
-  `&movieTitle=${encodeURIComponent(movie?.title || "")}` +
-  `&movieId=${id}`;
-
-            await WebBrowser.openBrowserAsync(payUrl, { dismissButtonStyle: "close" });
-
-            setCheckingPayment(true);
-            let attempts = 0;
-
-            const poll = async () => {
-                while (attempts < 6) {
-                    try {
-                        const res = await api.get(`/license/check/${id}`);
-                        if (res.data.hasAccess === true) {
-                            await fetchLicenses();
-                            await fetchMovie();
-                            router.replace({
-                                pathname: "/payment/callback",
-                                params: { status: "success", movie_id: id as string },
-                            } as any);
-                            return;
-                        }
-                    } catch {}
-                    attempts++;
-                    await new Promise((r) => setTimeout(r, 1000));
-                }
-                Alert.alert("Payment not completed", "You can try again anytime.");
+            const options = {
+                key,
+                amount: String(amount),
+                currency: currency || "INR",
+                order_id: orderId,
+                name: "A2S Cinemas",
+                description: `Access: ${movie?.title}`,
+                prefill: { email: user?.email || "", contact: "9999999999" },
+                theme: { color: "#E50914" },
             };
 
-            await poll();
+            const rzpData: any = await RazorpayCheckout.open(options);
+
+            // Verify payment with backend
+            setCheckingPayment(true);
+            const verifyRes = await api.post("/payment/verify", {
+                razorpay_order_id: rzpData.razorpay_order_id,
+                razorpay_payment_id: rzpData.razorpay_payment_id,
+                razorpay_signature: rzpData.razorpay_signature,
+            });
+
+            if (verifyRes.data.success) {
+                await fetchLicenses();
+                await fetchMovie();
+                router.replace({
+                    pathname: "/payment/callback",
+                    params: { status: "success", movie_id: id as string },
+                } as any);
+            } else {
+                Toast.show({ type: "error", text1: "Verification failed", text2: "Please contact support." });
+            }
         } catch (error: any) {
-            Alert.alert("Payment failed", "Something went wrong. Please try again.");
+            // RazorpayCheckout throws on user cancel (code 0) or failure
+            if (error.code === 0 || error.description?.toLowerCase().includes("cancel")) {
+                Toast.show({ type: "info", text1: "Payment cancelled" });
+            } else {
+                Toast.show({ type: "error", text1: "Payment failed", text2: error.description || "Something went wrong." });
+            }
         } finally {
             setCheckingPayment(false);
             setBuyLoading(false);
@@ -247,10 +311,10 @@ const payUrl =
                         style={{ width: "100%", height: "100%" }}
                         resizeMode="cover"
                     />
-                    <View style={{
+                    {/* <View style={{
                         position: "absolute", bottom: 0, left: 0, right: 0, height: 120,
                         backgroundColor: "rgba(0,0,0,0.6)",
-                    }} />
+                    }} /> */}
                     <TouchableOpacity
                         onPress={() => router.back()}
                         style={{
@@ -345,7 +409,7 @@ const payUrl =
                         </View>
 
                         {/* My review status */}
-                        {myReview && (
+                        {/* {myReview && (
                             <View style={{
                                 backgroundColor: "#f0f8f0", borderRadius: 10, padding: 12,
                                 marginBottom: 12, borderLeftWidth: 3, borderLeftColor: "#1d9e75",
@@ -373,7 +437,7 @@ const payUrl =
                                     </Text>
                                 )}
                             </View>
-                        )}
+                        )} */}
 
                         {/* Reviews list */}
                         {reviews.length === 0 ? (
