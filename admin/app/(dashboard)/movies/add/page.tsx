@@ -18,6 +18,7 @@ export default function AddMoviePage() {
     const router = useRouter();
     const posterInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
+    const catDropdownRef = useRef<HTMLDivElement>(null);
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -36,6 +37,17 @@ export default function AddMoviePage() {
     useEffect(() => {
         api.get("/categories?all=true").then(({ data }) => setCategories(data.data || []));
     }, []);
+
+    useEffect(() => {
+    if (!catDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+        if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
+            setCatDropdownOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+}, [catDropdownOpen]);
 
     const setField = (key: string) => (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -241,7 +253,8 @@ xhr.send(file);
                         {/* Multi-category selector */}
                         <div className="space-y-1.5">
                             <label className="text-sm text-gray-400">Categories</label>
-                            <div className="relative">
+                            <div className="relative" ref={catDropdownRef}>
+                                <div className="relative">
                                 <button
                                     type="button"
                                     onClick={() => setCatDropdownOpen(!catDropdownOpen)}
@@ -275,6 +288,7 @@ xhr.send(file);
                                     </div>
                                 )}
                             </div>
+</div>          
                             {selectedCategories.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {selectedNames.map((name, i) => (
@@ -297,19 +311,19 @@ xhr.send(file);
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-sm text-gray-400">Featured</label>
-                            <div className="flex items-center gap-3 h-[42px]">
-                                <button
-                                    type="button"
-                                    data-testid="movie-featured-toggle"
-                                    onClick={() => setForm((f) => ({ ...f, isFeatured: !f.isFeatured }))}
-                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.isFeatured ? "bg-[#E50914]" : "bg-[#1E1E2E]"}`}
-                                >
-                                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.isFeatured ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                                </button>
-                                <span className="text-sm text-gray-400">{form.isFeatured ? "Yes" : "No"}</span>
-                            </div>
-                        </div>
+    <label className="text-sm text-gray-400">Featured</label>
+    <div className="flex items-center gap-3 h-[42px]">
+        <button
+            type="button"
+            data-testid="movie-featured-toggle"
+            onClick={() => setForm((f) => ({ ...f, isFeatured: !f.isFeatured }))}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-[#E50914]" : "bg-[#2E2E3E]"}`}
+        >
+            <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${form.isFeatured ? "translate-x-6" : "translate-x-1"}`} />
+        </button>
+        <span className="text-sm text-gray-400">{form.isFeatured ? "Featured" : "Not Featured"}</span>
+    </div>
+</div>
 
                         <Input label="Trailer URL (optional)" placeholder="https://commondatastorage.googleapis.com/..."
                             value={form.trailerUrl} onChange={setField("trailerUrl")} />

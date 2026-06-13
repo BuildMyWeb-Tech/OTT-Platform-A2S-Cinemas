@@ -8,11 +8,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import api from "@/constants/api";
 import { Movie } from "@/constants/types";
-import { COLORS, GENRES } from "@/constants";
+import { COLORS, getCategoryIcon } from "@/constants";
 import { useLicense } from "@/context/LicenseContext";
 import MovieCard from "@/components/MovieCard";
 
 const { width } = Dimensions.get("window");
+
+interface Category {
+    _id: string;
+    name: string;
+    slug: string;
+}
 
 export default function Home() {
     const router = useRouter();
@@ -20,23 +26,26 @@ export default function Home() {
 
     const [featuredMovies, setFeaturedMovies] = useState<Movie[]>([]);
     const [allMovies, setAllMovies] = useState<Movie[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [bannerIndex, setBannerIndex] = useState(0);
 
     useEffect(() => {
-        fetchMovies();
+        fetchData();
     }, []);
 
-    const fetchMovies = async () => {
+    const fetchData = async () => {
         try {
-            const [featuredRes, allRes] = await Promise.all([
+            const [featuredRes, allRes, categoriesRes] = await Promise.all([
                 api.get("/movies?featured=true&limit=5"),
                 api.get("/movies?limit=12"),
+                api.get("/categories"),
             ]);
             setFeaturedMovies(featuredRes.data.data || []);
             setAllMovies(allRes.data.data || []);
+            setCategories(categoriesRes.data.data || []);
         } catch (error) {
-            console.error("Failed to fetch movies:", error);
+            console.error("Failed to fetch data:", error);
         } finally {
             setLoading(false);
         }
@@ -78,7 +87,6 @@ export default function Home() {
                                         style={{ width: "100%", height: "100%" }}
                                         resizeMode="cover"
                                     />
-                                    {/* Overlay */}
                                     <View
                                         style={{
                                             position: "absolute", bottom: 0, left: 0, right: 0,
@@ -104,7 +112,6 @@ export default function Home() {
                             ))}
                         </ScrollView>
 
-                        {/* Dots */}
                         <View className="flex-row justify-center mt-2 gap-2">
                             {featuredMovies.map((_, i) => (
                                 <View
@@ -120,26 +127,39 @@ export default function Home() {
                     </View>
                 )}
 
-                {/* Genre scroll */}
-                <View className="mb-4 px-4">
-                    <Text className="text-lg font-bold text-primary mb-3">Browse by Genre</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {GENRES.map((g) => (
+                {/* Genre scroll — DYNAMIC from Categories collection */}
+                {categories.length > 0 && (
+                    <View className="mb-4 px-4">
+                        <Text className="text-lg font-bold text-primary mb-3">Browse by Genre</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             <TouchableOpacity
-                                key={g.id}
-                                onPress={() => router.push({ pathname: "/browse", params: { genre: g.id === "all" ? "" : g.id } })}
+                                onPress={() => router.push({ pathname: "/browse", params: { category: "all" } })}
                                 style={{
                                     marginRight: 10, paddingHorizontal: 16, paddingVertical: 8,
                                     backgroundColor: COLORS.surface, borderRadius: 20,
                                     flexDirection: "row", alignItems: "center", gap: 6,
                                 }}
                             >
-                                <Ionicons name={g.icon as any} size={14} color={COLORS.primary} />
-                                <Text style={{ fontSize: 13, color: COLORS.primary }}>{g.name}</Text>
+                                <Ionicons name="grid-outline" size={14} color={COLORS.primary} />
+                                <Text style={{ fontSize: 13, color: COLORS.primary }}>All</Text>
                             </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
+                            {categories.map((cat) => (
+                                <TouchableOpacity
+                                    key={cat._id}
+                                    onPress={() => router.push({ pathname: "/browse", params: { category: cat.slug } })}
+                                    style={{
+                                        marginRight: 10, paddingHorizontal: 16, paddingVertical: 8,
+                                        backgroundColor: COLORS.surface, borderRadius: 20,
+                                        flexDirection: "row", alignItems: "center", gap: 6,
+                                    }}
+                                >
+                                    <Ionicons name={getCategoryIcon(cat.name) as any} size={14} color={COLORS.primary} />
+                                    <Text style={{ fontSize: 13, color: COLORS.primary }}>{cat.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
                 {/* All Movies */}
                 <View className="px-4 mb-8">
