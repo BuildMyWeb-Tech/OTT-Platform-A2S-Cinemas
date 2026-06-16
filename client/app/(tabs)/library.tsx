@@ -146,15 +146,15 @@ export default function Library() {
                                             <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>Watch Now</Text>
                                         </TouchableOpacity>
                                     ) : (
-                                        <TouchableOpacity
-                                            onPress={() => router.push(`/movie/${movieId}` as any)}
-                                            style={{
-                                                backgroundColor: COLORS.primary, borderRadius: 8,
-                                                paddingVertical: 8, paddingHorizontal: 14,
-                                                flexDirection: "row", alignItems: "center", gap: 6,
-                                                alignSelf: "flex-start",
-                                            }}
-                                        >
+                                    <TouchableOpacity
+                                onPress={() => router.push(`/movie/${movieId}` as any)}
+                                activeOpacity={0.85}
+                                style={{
+                                    backgroundColor: "#fff", borderRadius: 12, marginBottom: 12,
+                                    borderWidth: 0.5, borderColor: "#eee", flexDirection: "row",
+                                    overflow: "hidden",
+                                }}
+                            >
                                             <Ionicons name="refresh-outline" size={14} color="#fff" />
                                             <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>Re-purchase</Text>
                                         </TouchableOpacity>

@@ -7,6 +7,11 @@ import { Image, Text, TouchableOpacity, View } from "react-native";
 export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: MovieCardProps) {
     const statusColor = isPurchased ? LICENSE_STATUS_COLOR(daysLeft, true) : null;
 
+    // Prefer dynamic categories over legacy genre field
+    const categoryLabel = (movie.categories && movie.categories.length > 0)
+        ? movie.categories.map((c: any) => c.name).join(", ")
+        : movie.genre;
+
     return (
         <Link href={`/movie/${movie._id}`} asChild>
             <TouchableOpacity
@@ -72,7 +77,9 @@ export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: 
                         {movie.title}
                     </Text>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <Text style={{ fontSize: 11, color: COLORS.secondary }}>{movie.genre}</Text>
+                        <Text style={{ fontSize: 11, color: COLORS.secondary }} numberOfLines={1}>
+                            {categoryLabel}
+                        </Text>
                         <Text style={{ fontSize: 11, color: COLORS.secondary }}>
                             {movie.duration ? `${movie.duration}m` : `${movie.expiryDays}d access`}
                         </Text>

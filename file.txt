@@ -13,12 +13,17 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
          📁 movies
             📁 add
                📄 page.tsx
+            📁 analytics
+               📁 [id]
+                  📄 page.tsx
             📄 page.tsx
             📁 [id]
                📁 edit
                   📄 page.tsx
          📄 page.tsx
          📁 purchases
+            📄 page.tsx
+         📁 reviews
             📄 page.tsx
          📁 users
             📄 page.tsx
@@ -49,6 +54,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 README.md
       📁 types
          📄 router.d.ts
+      📁 web
    📄 .gitignore
    📁 app
       📁 (auth)
@@ -124,6 +130,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 AuthContext.tsx
       📄 LicenseContext.tsx
    📄 declarations.d.ts
+   📄 eas.json
    📄 eslint.config.js
    📄 expo-env.d.ts
    📄 global.css
@@ -134,7 +141,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
    📄 tailwind.config.js
    📄 tsconfig.json
 📄 file.txt
-📄 OTT-Platform.postman_collection.json
+📄 Production-Secrets.txt
 📁 server
    📄 .env
    📄 .gitignore
@@ -155,6 +162,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 paymentController.ts
       📄 productController.ts
       📄 purchaseController.ts
+      📄 reviewController.ts
       📄 streamController.ts
       📄 webhooks.ts
       📄 wishlistController.ts
@@ -171,6 +179,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 Order.ts
       📄 Product.ts
       📄 Purchase.ts
+      📄 Review.ts
       📄 User.ts
       📄 Wishlist.ts
    📄 package.json
@@ -186,11 +195,13 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 paymentRoutes.ts
       📄 productsRoutes.ts
       📄 purchaseRoutes.ts
+      📄 reviewRoutes.ts
       📄 streamRoutes.ts
       📄 wishlistRoutes.ts
    📁 scripts
       📄 addIndexes.ts
       📄 makeAdmin.ts
+      📄 migrateCategories.ts
       📄 resetDB.ts
       📄 resetTestData.ts
       📄 seedOTT.ts

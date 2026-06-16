@@ -14,9 +14,13 @@ export const COLORS = {
 export const PROFILE_MENU = [
     { id: 1, title: "My Library", icon: "library-outline", route: "/(tabs)/library" },
     { id: 2, title: "Purchase History", icon: "receipt-outline", route: "/purchases" },
-    { id: 3, title: "Privacy Policy", icon: "shield-checkmark-outline", route: "/support/privacy" },
-    { id: 4, title: "Refund Policy", icon: "cash-outline", route: "/support/refund" },
-    { id: 5, title: "Terms & Conditions", icon: "document-text-outline", route: "/support/terms" },
+    { id: 3, title: "Help Center", icon: "help-circle-outline", route: "/support" },
+];
+
+export const HELP_CENTER_MENU = [
+    { id: 1, title: "Privacy Policy", icon: "shield-checkmark-outline", route: "/support/privacy" },
+    { id: 2, title: "Refund Policy", icon: "cash-outline", route: "/support/refund" },
+    { id: 3, title: "Terms & Conditions", icon: "document-text-outline", route: "/support/terms" },
 ];
 
 export const LICENSE_STATUS_COLOR = (daysLeft: number, isActive: boolean) => {
@@ -26,7 +30,6 @@ export const LICENSE_STATUS_COLOR = (daysLeft: number, isActive: boolean) => {
     return { bg: "#e8f8f0", text: "#0f6e56", label: `${daysLeft}d left` };
 };
 
-// Icon mapping for dynamically-loaded categories — fallback icon if category name unmapped
 export const CATEGORY_ICON_MAP: Record<string, string> = {
     action: "flash-outline",
     drama: "film-outline",

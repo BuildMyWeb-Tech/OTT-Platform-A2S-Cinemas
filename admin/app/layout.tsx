@@ -11,6 +11,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "A2S Cinemas — Admin",
   description: "OTT Platform Admin Dashboard",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({

@@ -130,7 +130,7 @@ export const createReview = async (req: Request, res: Response) => {
 };
 
 // ── GET /api/reviews/movie/:movieId ───────────────────────────────────────────
-// Public — approved reviews only
+// Public — approved reviews + requesting user's own review (any status)
 export const getMovieReviews = async (req: Request, res: Response) => {
     try {
         const { movieId } = req.params;
@@ -143,24 +143,29 @@ export const getMovieReviews = async (req: Request, res: Response) => {
         const p = Math.max(1, Number(page));
         const l = Math.min(20, Math.max(1, Number(limit)));
 
-        const total = await Review.countDocuments({
-            movieId,
-            status: "approved",
-        });
+        const userId = req.user?._id; // may be undefined for guests — route should allow optional auth
 
-        const reviews = await Review.find({ movieId, status: "approved" })
+        // Build query: approved reviews OR (if logged in) the user's own review
+        const query: any = userId
+            ? { movieId, $or: [{ status: "approved" }, { userId }] }
+            : { movieId, status: "approved" };
+
+        const total = await Review.countDocuments(query);
+
+        const reviews = await Review.find(query)
             .populate("userId", "name")
             .sort({ createdAt: -1 })
             .skip((p - 1) * l)
             .limit(l);
 
-        // Shape response — only expose safe fields
         const formatted = reviews.map((r) => ({
             _id: r._id,
             rating: r.rating,
             comment: r.comment,
             userName: (r.userId as any)?.name ?? "User",
             createdAt: r.createdAt,
+            isOwn: userId ? String(r.userId._id ?? r.userId) === String(userId) : false,
+            status: r.status,
         }));
 
         res.json({

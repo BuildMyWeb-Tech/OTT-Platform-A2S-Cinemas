@@ -135,7 +135,12 @@ export const getMovie = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, message: "Movie not found" });
         }
 
-        // Fetch approved reviews for this movie
+        // Hide inactive movies from non-admin requests
+        const isAdmin = req.user?.role === "admin";
+        if (!movie.isActive && !isAdmin) {
+            return res.status(404).json({ success: false, message: "Movie not found" });
+        }
+
         const Review = (await import("../models/Review.js")).default;
         const reviews = await Review.find({ movieId: id, status: "approved" })
             .populate("userId", "name")

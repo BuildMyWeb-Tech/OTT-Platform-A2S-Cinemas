@@ -21,7 +21,7 @@ export interface Movie {
     expiryDays: number;
     isFeatured: boolean;
     isActive: boolean;
-    categoryId?: string | { _id: string; name: string };
+    categories?: { _id: string; name: string; slug: string }[];
     ratings: { average: number; count: number };
     createdAt: string;
 }
@@ -97,6 +97,8 @@ export interface Review {
     comment?: string;
     userName: string;
     createdAt: string;
+    isOwn?: boolean;
+    status?: "pending" | "approved" | "rejected";
 }
 
 export interface MyReview {

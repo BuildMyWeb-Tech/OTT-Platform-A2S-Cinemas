@@ -34,9 +34,16 @@ export default function AddMoviePage() {
     const [saving, setSaving] = useState(false);
     const [serverError, setServerError] = useState("");
 
+    // useEffect(() => {
+    //     api.get("/categories?all=true").then(({ data }) => setCategories(data.data || []));
+    // }, []);
+
     useEffect(() => {
-        api.get("/categories?all=true").then(({ data }) => setCategories(data.data || []));
-    }, []);
+    api.get("/categories?all=true").then(({ data }) => {
+        // Only show active categories in the selectable dropdown
+        setCategories((data.data || []).filter((c: Category) => c.isActive));
+    });
+}, []);
 
     useEffect(() => {
     if (!catDropdownOpen) return;

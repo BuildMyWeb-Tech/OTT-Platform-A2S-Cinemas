@@ -10,11 +10,13 @@ import {
     deleteReview,
 } from "../controllers/reviewController.js";
 import { protect, authorize } from "../middleware/auth.js";
+import { optionalAuth } from "../middleware/optionalAuth.js";
 
 const router = express.Router();
 
-// Public
-router.get("/movie/:movieId", getMovieReviews);
+// Public — but optionalAuth populates req.user if a valid token is sent,
+// so getMovieReviews can also return the caller's own pending/rejected review
+router.get("/movie/:movieId", optionalAuth, getMovieReviews);
 
 // Authenticated users
 router.post("/", protect, createReview);

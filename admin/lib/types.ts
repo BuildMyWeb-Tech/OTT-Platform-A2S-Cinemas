@@ -22,6 +22,7 @@ export interface Movie {
   isFeatured: boolean;
   isActive: boolean;
   categoryId?: string | { _id: string; name: string };
+  categories?: { _id: string; name: string; slug: string }[];
   ratings: { average: number; count: number };
   createdAt: string;
 }

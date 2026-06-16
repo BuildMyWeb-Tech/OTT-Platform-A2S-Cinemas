@@ -179,12 +179,13 @@ export default function Player() {
                 onPress={() => setShowControls((prev) => !prev)}
             >
                 <VideoView
-                    player={player}
-                    style={{ flex: 1 }}
-                    allowsFullscreen
-                    allowsPictureInPicture
-                    contentFit="contain"
-                />
+    player={player}
+    style={{ flex: 1 }}
+    allowsFullscreen
+    allowsPictureInPicture
+    contentFit="contain"
+    nativeControls={false}
+/>
 
                 {isBuffering && (
                     <View style={{

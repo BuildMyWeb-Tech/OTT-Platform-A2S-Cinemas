@@ -9,13 +9,14 @@ import {
     toggleMovieStatus,
 } from "../controllers/movieController.js";
 import { protect, authorize } from "../middleware/auth.js";
+import { optionalAuth } from "../middleware/optionalAuth.js";
 
 const router = express.Router();
 
 // Public routes
 router.get("/", getMovies);
 router.get("/search/suggestions", getSearchSuggestions);  // must be before /:id
-router.get("/:id", getMovie);
+router.get("/:id", optionalAuth, getMovie);
 
 // Admin only
 router.post("/", protect, authorize("admin"), createMovie);
