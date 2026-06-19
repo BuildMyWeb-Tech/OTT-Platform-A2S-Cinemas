@@ -1,19 +1,17 @@
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
     ActivityIndicator, Dimensions, FlatList,
-    Image, ScrollView, Text, TouchableOpacity, View
+    Image, ScrollView, Text, TouchableOpacity, View, Modal
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "@/constants/api";
 import { Movie } from "@/constants/types";
 import { COLORS, getCategoryIcon } from "@/constants";
 import { useLicense } from "@/context/LicenseContext";
 import MovieCard from "@/components/MovieCard";
-import { useRef } from "react";
-import { useFocusEffect } from "expo-router";
-import { useCallback } from "react";
 
 const { width } = Dimensions.get("window");
 
@@ -28,8 +26,8 @@ export default function Home() {
     const { hasLicense, getDaysLeft } = useLicense();
     const bannerScrollRef = useRef<ScrollView>(null);
     const [notifications, setNotifications] = useState<any[]>([]);
-const [showNotifications, setShowNotifications] = useState(false);
-const [readIds, setReadIds] = useState<string[]>([]);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [readIds, setReadIds] = useState<string[]>([]);
 
     const [featuredMovies, setFeaturedMovies] = useState<Movie[]>([]);
     const [allMovies, setAllMovies] = useState<Movie[]>([]);
@@ -37,36 +35,71 @@ const [readIds, setReadIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [bannerIndex, setBannerIndex] = useState(0);
 
-   useFocusEffect(
-    useCallback(() => {
-        fetchData();
-    }, [])
-);
+    const READ_NOTIF_KEY = "ott_read_notification_ids";
 
     useEffect(() => {
-    if (featuredMovies.length <= 1) return;
-    const interval = setInterval(() => {
-        setBannerIndex((prev) => {
-            const next = (prev + 1) % featuredMovies.length;
-            bannerScrollRef.current?.scrollTo({ x: next * width, animated: true });
-            return next;
+        AsyncStorage.getItem(READ_NOTIF_KEY).then((val) => {
+            if (val) setReadIds(JSON.parse(val));
         });
-    }, 3000);
-    return () => clearInterval(interval);
-}, [featuredMovies.length]);
+    }, []);
+
+    const markAsRead = async (notifId: string) => {
+        if (readIds.includes(notifId)) return;
+        const updated = [...readIds, notifId];
+        setReadIds(updated);
+        await AsyncStorage.setItem(READ_NOTIF_KEY, JSON.stringify(updated));
+    };
+
+    const markAllAsRead = async () => {
+        const allIds = notifications.map((n) => n._id);
+        const updated = Array.from(new Set([...readIds, ...allIds]));
+        setReadIds(updated);
+        await AsyncStorage.setItem(READ_NOTIF_KEY, JSON.stringify(updated));
+    };
+
+    const formatNotifTime = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [])
+    );
+
+    useEffect(() => {
+        if (featuredMovies.length <= 1) return;
+        const interval = setInterval(() => {
+            setBannerIndex((prev) => {
+                const next = (prev + 1) % featuredMovies.length;
+                bannerScrollRef.current?.scrollTo({ x: next * width, animated: true });
+                return next;
+            });
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [featuredMovies.length]);
 
     const fetchData = async () => {
         try {
-            const [featuredRes, allRes, categoriesRes] = await Promise.all([
+            const [featuredRes, allRes, categoriesRes, notifRes] = await Promise.all([
                 api.get("/movies?featured=true&limit=5"),
                 api.get("/movies?limit=12"),
                 api.get("/categories"),
+                api.get("/notifications"),
             ]);
-            const notifRes = await api.get("/notifications");
-setNotifications(notifRes.data.data || []);
             setFeaturedMovies(featuredRes.data.data || []);
             setAllMovies(allRes.data.data || []);
             setCategories(categoriesRes.data.data || []);
+            setNotifications(notifRes.data.data || []);
         } catch (error) {
             console.error("Failed to fetch data:", error);
         } finally {
@@ -77,33 +110,36 @@ setNotifications(notifRes.data.data || []);
     return (
         <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
             {/* Header */}
-            <View className="flex-row items-center gap-3">
-    <TouchableOpacity onPress={() => setShowNotifications(true)} style={{ position: "relative" }}>
-        <Ionicons name="notifications-outline" size={24} color={COLORS.primary} />
-        {notifications.filter(n => !readIds.includes(n._id)).length > 0 && (
-            <View style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent }} />
-        )}
-    </TouchableOpacity>
-    <TouchableOpacity onPress={() => router.push("/browse")}>
-        <Ionicons name="search-outline" size={24} color={COLORS.primary} />
-    </TouchableOpacity>
-</View>
+            <View className="flex-row justify-between items-center px-4 py-3">
+                <Text style={{ fontSize: 22, fontWeight: "700", color: COLORS.accent }}>🎬 A2S Cinemas</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                    <TouchableOpacity onPress={() => setShowNotifications(true)} style={{ position: "relative" }}>
+                        <Ionicons name="notifications-outline" size={24} color={COLORS.primary} />
+                        {notifications.filter(n => !readIds.includes(n._id)).length > 0 && (
+                            <View style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent }} />
+                        )}
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push("/browse")}>
+                        <Ionicons name="search-outline" size={24} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {/* Featured Banner */}
                 {featuredMovies.length > 0 && (
                     <View className="mb-6">
                         <ScrollView
-    ref={bannerScrollRef}
-    horizontal
-    pagingEnabled
-    showsHorizontalScrollIndicator={false}
-    onScroll={(e) => {
-        const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
-        setBannerIndex(slide);
-    }}
-    scrollEventThrottle={16}
->
+                            ref={bannerScrollRef}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            onScroll={(e) => {
+                                const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
+                                setBannerIndex(slide);
+                            }}
+                            scrollEventThrottle={16}
+                        >
                             {featuredMovies.map((movie) => (
                                 <TouchableOpacity
                                     key={movie._id}
@@ -215,6 +251,102 @@ setNotifications(notifRes.data.data || []);
                     )}
                 </View>
             </ScrollView>
+
+            <Modal
+                visible={showNotifications}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowNotifications(false)}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)" }}
+                    activeOpacity={1}
+                    onPress={() => setShowNotifications(false)}
+                />
+                <View style={{
+                    backgroundColor: "#fff",
+                    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+                    paddingTop: 16, paddingBottom: 32, maxHeight: "70%",
+                }}>
+                    <View style={{
+                        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                        paddingHorizontal: 20, paddingBottom: 12,
+                        borderBottomWidth: 0.5, borderBottomColor: "#f0f0f0",
+                    }}>
+                        <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.primary }}>
+                            Notifications
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                            {notifications.length > 0 && (
+                                <TouchableOpacity onPress={markAllAsRead}>
+                                    <Text style={{ fontSize: 12, color: COLORS.accent, fontWeight: "600" }}>
+                                        Mark all read
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={() => setShowNotifications(false)}>
+                                <Ionicons name="close" size={22} color={COLORS.secondary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {notifications.length === 0 ? (
+                        <View style={{ padding: 40, alignItems: "center" }}>
+                            <Ionicons name="notifications-off-outline" size={40} color={COLORS.secondary} />
+                            <Text style={{ color: COLORS.secondary, marginTop: 12, fontSize: 14 }}>
+                                No notifications yet
+                            </Text>
+                        </View>
+                    ) : (
+                        <ScrollView>
+                            {notifications.map((n) => {
+                                const isRead = readIds.includes(n._id);
+                                return (
+                                    <TouchableOpacity
+                                        key={n._id}
+                                        onPress={() => {
+                                            markAsRead(n._id);
+                                            if (n.movieId) {
+                                                setShowNotifications(false);
+                                                const movieIdVal = typeof n.movieId === "string" ? n.movieId : n.movieId._id;
+                                                router.push(`/movie/${movieIdVal}` as any);
+                                            }
+                                        }}
+                                        style={{
+                                            flexDirection: "row", alignItems: "flex-start", gap: 12,
+                                            paddingHorizontal: 20, paddingVertical: 14,
+                                            borderBottomWidth: 0.5, borderBottomColor: "#f5f5f5",
+                                            backgroundColor: isRead ? "#fff" : "#fef5f5",
+                                        }}
+                                    >
+                                        <View style={{
+                                            width: 36, height: 36, borderRadius: 18,
+                                            backgroundColor: COLORS.accent + "15",
+                                            justifyContent: "center", alignItems: "center",
+                                        }}>
+                                            <Ionicons name="film-outline" size={18} color={COLORS.accent} />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 14, fontWeight: isRead ? "500" : "700", color: COLORS.primary }}>
+                                                {n.title}
+                                            </Text>
+                                            <Text style={{ fontSize: 13, color: COLORS.secondary, marginTop: 2 }}>
+                                                {n.message}
+                                            </Text>
+                                            <Text style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+                                                {formatNotifTime(n.createdAt)}
+                                            </Text>
+                                        </View>
+                                        {!isRead && (
+                                            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent, marginTop: 4 }} />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    )}
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }

@@ -129,24 +129,20 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
             <div className="space-y-4">
               <Input label="Title" value={form.title || ""} onChange={set("title")} />
               <Textarea label="Description" value={form.description || ""} onChange={set("description")} rows={3} />
-              <div className="grid grid-cols-2 gap-4">
-                <Select label="Genre" value={form.genre || ""} onChange={set("genre")}>
-                  {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-                </Select>
-                <div className="space-y-1.5">
-                  <label className="text-sm text-gray-400">Featured</label>
-                  <div className="flex items-center gap-3 h-[42px]">
-                    <button
-                      type="button"
-                      onClick={() => setForm((f: any) => ({ ...f, isFeatured: !f.isFeatured }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-[#E50914]" : "bg-[#2E2E3E]"}`}
-                    >
-                      <span className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${form.isFeatured ? "translate-x-6" : "translate-x-1"}`} />
-                    </button>
-                    <span className="text-sm text-gray-400">{form.isFeatured ? "Featured" : "Not Featured"}</span>
-                  </div>
-                </div>
-              </div>
+              <div className="space-y-1.5">
+    <label className="text-sm text-gray-400">Featured</label>
+    <div className="flex items-center gap-3 h-[42px]">
+        <button
+            type="button"
+            data-testid="movie-featured-toggle"
+            onClick={() => setForm((f: any) => ({ ...f, isFeatured: !f.isFeatured }))}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-emerald-500" : "bg-[#2E2E3E]"}`}
+        >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${form.isFeatured ? "translate-x-5" : "translate-x-0.5"}`} />
+        </button>
+        <span className="text-sm text-gray-400">{form.isFeatured ? "Featured" : "Not Featured"}</span>
+    </div>
+</div>
 
               {/* Categories — dynamic, pre-selected */}
               <div className="space-y-1.5">

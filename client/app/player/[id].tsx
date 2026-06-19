@@ -20,6 +20,9 @@ export default function Player() {
     const [error, setError] = useState<string | null>(null);
     const [showControls, setShowControls] = useState(true);
     const [isBuffering, setIsBuffering] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
 
     useEffect(() => {
         if (id) fetchStreamUrl();
@@ -83,16 +86,21 @@ export default function Player() {
         if (streamUrl) p.play();
     });
 
-    // Track playback position
-    const { currentTime = 0 } = useEvent(player, "timeUpdate") ?? {};
-    const duration = player?.duration ?? 0;
-
-    // Track buffering / waiting state
-    const status = useEvent(player, "statusChange");
+    // Poll player state every 250ms — most reliable approach across expo-video versions
     useEffect(() => {
-        if (status?.status === "loading") setIsBuffering(true);
-        else setIsBuffering(false);
-    }, [status]);
+        if (!player) return;
+        const interval = setInterval(() => {
+            try {
+                setCurrentTime(player.currentTime || 0);
+                setDuration(player.duration || 0);
+                setIsPlaying(player.playing);
+                setIsBuffering(player.status === "loading" || player.status === "idle" && player.playing);
+            } catch {
+                // player may be released on unmount — ignore
+            }
+        }, 250);
+        return () => clearInterval(interval);
+    }, [player]);
 
     useEffect(() => {
         if (!showControls) return;
@@ -102,8 +110,10 @@ export default function Player() {
 
     const formatTime = (seconds: number) => {
         if (!seconds || !isFinite(seconds)) return "0:00";
-        const m = Math.floor(seconds / 60);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
         return `${m}:${s.toString().padStart(2, "0")}`;
     };
 
@@ -111,6 +121,7 @@ export default function Player() {
         if (!player) return;
         const newTime = Math.max(0, Math.min(duration, currentTime + deltaSeconds));
         player.currentTime = newTime;
+        setCurrentTime(newTime);
         setShowControls(true);
     };
 
@@ -118,7 +129,26 @@ export default function Player() {
         if (!player || !duration) return;
         const newTime = Math.max(0, Math.min(duration, fraction * duration));
         player.currentTime = newTime;
+        setCurrentTime(newTime);
     };
+
+    const togglePlayPause = () => {
+        if (!player) return;
+        if (isPlaying) {
+            player.pause();
+        } else {
+            player.play();
+        }
+        setShowControls(true);
+    };
+
+    const toggleFullscreen = () => {
+        if (!player) return;
+        // expo-video VideoView ref method — needs a ref to call enterFullscreen
+        videoViewRef.current?.enterFullscreen?.();
+    };
+
+    const videoViewRef = React.useRef<any>(null);
 
     if (loading) {
         return (
@@ -179,13 +209,14 @@ export default function Player() {
                 onPress={() => setShowControls((prev) => !prev)}
             >
                 <VideoView
-    player={player}
-    style={{ flex: 1 }}
-    allowsFullscreen
-    allowsPictureInPicture
-    contentFit="contain"
-    nativeControls={false}
-/>
+                    ref={videoViewRef}
+                    player={player}
+                    style={{ flex: 1 }}
+                    allowsFullscreen
+                    allowsPictureInPicture
+                    contentFit="contain"
+                    nativeControls={false}
+                />
 
                 {isBuffering && (
                     <View style={{
@@ -202,7 +233,7 @@ export default function Player() {
                         backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "space-between",
                     }}>
                         {/* Top */}
-                        <View style={{ flexDirection: "row", alignItems: "center", padding: 16, paddingTop: 48 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, paddingTop: 48 }}>
                             <TouchableOpacity
                                 onPress={() => { player.pause(); router.back(); }}
                                 style={{
@@ -212,6 +243,17 @@ export default function Player() {
                                 }}
                             >
                                 <Ionicons name="arrow-back" size={22} color="#fff" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={toggleFullscreen}
+                                style={{
+                                    width: 40, height: 40, borderRadius: 20,
+                                    backgroundColor: "rgba(0,0,0,0.5)",
+                                    justifyContent: "center", alignItems: "center",
+                                }}
+                            >
+                                <Ionicons name="expand" size={20} color="#fff" />
                             </TouchableOpacity>
                         </View>
 
@@ -230,18 +272,14 @@ export default function Player() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                onPress={() => {
-                                    if (player.playing) player.pause();
-                                    else player.play();
-                                    setShowControls(true);
-                                }}
+                                onPress={togglePlayPause}
                                 style={{
                                     width: 64, height: 64, borderRadius: 32,
                                     backgroundColor: "rgba(0,0,0,0.6)",
                                     justifyContent: "center", alignItems: "center",
                                 }}
                             >
-                                <Ionicons name={player.playing ? "pause" : "play"} size={32} color="#fff" />
+                                <Ionicons name={isPlaying ? "pause" : "play"} size={32} color="#fff" />
                             </TouchableOpacity>
 
                             <TouchableOpacity
