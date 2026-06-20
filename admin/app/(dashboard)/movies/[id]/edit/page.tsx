@@ -129,14 +129,14 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
             <div className="space-y-4">
               <Input label="Title" value={form.title || ""} onChange={set("title")} />
               <Textarea label="Description" value={form.description || ""} onChange={set("description")} rows={3} />
-              <div className="space-y-1.5">
+        <div className="space-y-1.5">
     <label className="text-sm text-gray-400">Featured</label>
     <div className="flex items-center gap-3 h-[42px]">
         <button
             type="button"
             data-testid="movie-featured-toggle"
             onClick={() => setForm((f: any) => ({ ...f, isFeatured: !f.isFeatured }))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-emerald-500" : "bg-[#2E2E3E]"}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-[#E50914]" : "bg-[#2E2E3E]"}`}
         >
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${form.isFeatured ? "translate-x-5" : "translate-x-0.5"}`} />
         </button>

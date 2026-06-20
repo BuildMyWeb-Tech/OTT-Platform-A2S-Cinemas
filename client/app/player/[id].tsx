@@ -5,8 +5,8 @@ import {
     ActivityIndicator, Alert, StatusBar,
     Text, TouchableOpacity, View, PanResponder, Dimensions
 } from "react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEvent } from "expo";
 import api from "@/constants/api";
 import { COLORS } from "@/constants";
 
@@ -23,10 +23,18 @@ export default function Player() {
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
         if (id) fetchStreamUrl();
     }, [id]);
+
+    // Reset orientation on unmount
+    useEffect(() => {
+        return () => {
+            ScreenOrientation.unlockAsync();
+        };
+    }, []);
 
     const fetchStreamUrl = async () => {
         try {
@@ -86,7 +94,6 @@ export default function Player() {
         if (streamUrl) p.play();
     });
 
-    // Poll player state every 250ms — most reliable approach across expo-video versions
     useEffect(() => {
         if (!player) return;
         const interval = setInterval(() => {
@@ -94,10 +101,8 @@ export default function Player() {
                 setCurrentTime(player.currentTime || 0);
                 setDuration(player.duration || 0);
                 setIsPlaying(player.playing);
-                setIsBuffering(player.status === "loading" || player.status === "idle" && player.playing);
-            } catch {
-                // player may be released on unmount — ignore
-            }
+                setIsBuffering(player.status === "loading");
+            } catch {}
         }, 250);
         return () => clearInterval(interval);
     }, [player]);
@@ -134,21 +139,21 @@ export default function Player() {
 
     const togglePlayPause = () => {
         if (!player) return;
-        if (isPlaying) {
-            player.pause();
-        } else {
-            player.play();
-        }
+        if (isPlaying) player.pause();
+        else player.play();
         setShowControls(true);
     };
 
-    const toggleFullscreen = () => {
-        if (!player) return;
-        // expo-video VideoView ref method — needs a ref to call enterFullscreen
-        videoViewRef.current?.enterFullscreen?.();
+    const toggleFullscreen = async () => {
+        if (!isFullscreen) {
+            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+            setIsFullscreen(true);
+        } else {
+            await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+            setIsFullscreen(false);
+        }
+        setShowControls(true);
     };
-
-    const videoViewRef = React.useRef<any>(null);
 
     if (loading) {
         return (
@@ -209,10 +214,8 @@ export default function Player() {
                 onPress={() => setShowControls((prev) => !prev)}
             >
                 <VideoView
-                    ref={videoViewRef}
                     player={player}
                     style={{ flex: 1 }}
-                    allowsFullscreen
                     allowsPictureInPicture
                     contentFit="contain"
                     nativeControls={false}
@@ -233,9 +236,13 @@ export default function Player() {
                         backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "space-between",
                     }}>
                         {/* Top */}
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, paddingTop: 48 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, paddingTop: isFullscreen ? 16 : 48 }}>
                             <TouchableOpacity
-                                onPress={() => { player.pause(); router.back(); }}
+                                onPress={() => {
+                                    player.pause();
+                                    if (isFullscreen) ScreenOrientation.unlockAsync();
+                                    router.back();
+                                }}
                                 style={{
                                     width: 40, height: 40, borderRadius: 20,
                                     backgroundColor: "rgba(0,0,0,0.5)",
@@ -253,11 +260,11 @@ export default function Player() {
                                     justifyContent: "center", alignItems: "center",
                                 }}
                             >
-                                <Ionicons name="expand" size={20} color="#fff" />
+                                <Ionicons name={isFullscreen ? "contract" : "expand"} size={20} color="#fff" />
                             </TouchableOpacity>
                         </View>
 
-                        {/* Centre controls — play/pause + seek ±10s */}
+                        {/* Centre controls — play/pause + seek ±10s, identical in both modes */}
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32 }}>
                             <TouchableOpacity
                                 onPress={() => seekBy(-10)}
@@ -296,7 +303,7 @@ export default function Player() {
                         </View>
 
                         {/* Bottom — seek bar + time */}
-                        <View style={{ padding: 16, paddingBottom: 32 }}>
+                        <View style={{ padding: 16, paddingBottom: isFullscreen ? 16 : 32 }}>
                             <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
                                 <Text style={{ color: "#fff", fontSize: 12 }}>{formatTime(currentTime)}</Text>
                                 <Text style={{ color: "#fff", fontSize: 12 }}>{formatTime(duration)}</Text>
@@ -319,7 +326,7 @@ export default function Player() {
                                     marginLeft: -6,
                                 }} />
                             </View>
-                            {licenseExpiry && (
+                            {licenseExpiry && !isFullscreen && (
                                 <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textAlign: "center", marginTop: 12 }}>
                                     License expires {new Date(licenseExpiry).toLocaleDateString()}
                                 </Text>

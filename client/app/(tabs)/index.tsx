@@ -87,24 +87,26 @@ export default function Home() {
         }, 3000);
         return () => clearInterval(interval);
     }, [featuredMovies.length]);
-
-    const fetchData = async () => {
+const fetchData = async () => {
         try {
-            const [featuredRes, allRes, categoriesRes, notifRes] = await Promise.all([
+            const [featuredRes, allRes, categoriesRes] = await Promise.all([
                 api.get("/movies?featured=true&limit=5"),
                 api.get("/movies?limit=12"),
                 api.get("/categories"),
-                api.get("/notifications"),
             ]);
             setFeaturedMovies(featuredRes.data.data || []);
             setAllMovies(allRes.data.data || []);
             setCategories(categoriesRes.data.data || []);
-            setNotifications(notifRes.data.data || []);
         } catch (error) {
             console.error("Failed to fetch data:", error);
         } finally {
             setLoading(false);
         }
+
+        // Notifications fetched separately — doesn't block movie grid rendering
+        api.get("/notifications")
+            .then(({ data }) => setNotifications(data.data || []))
+            .catch((error) => console.error("Failed to fetch notifications:", error));
     };
 
     return (
