@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import mongoose from "mongoose";
 import Review from "../models/Review.js";
+import { deleteFromS3 } from "../config/s3.js";
 
 
 export const getDashboardStats = async (req: Request, res: Response) => {
@@ -375,6 +376,19 @@ export const exportMovieAnalytics = async (req: Request, res: Response) => {
         res.status(400).json({ success: false, message: "format must be csv or excel" });
     } catch (error: any) {
         console.error("Export error:", error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const cleanupUpload = async (req: Request, res: Response) => {
+    try {
+        const { key } = req.body;
+        if (!key || typeof key !== "string") {
+            return res.status(400).json({ success: false, message: "S3 key required" });
+        }
+        await deleteFromS3(key);
+        res.json({ success: true, message: "Upload cleaned up" });
+    } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
 };

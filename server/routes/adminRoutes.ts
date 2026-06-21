@@ -7,6 +7,7 @@ import {
     unblockUser,
     getMovieAnalytics,
     exportMovieAnalytics,
+    cleanupUpload,
 } from "../controllers/adminController.js";
 import { protect, authorize } from "../middleware/auth.js";
 
@@ -20,5 +21,6 @@ router.patch("/users/:id/unblock", unblockUser);
 router.post("/upload-url", getUploadUrl);
 router.get("/analytics/:movieId", getMovieAnalytics);
 router.get("/analytics/:movieId/export", exportMovieAnalytics);
+router.delete("/cleanup-upload", protect, authorize("admin"), cleanupUpload);
 
 export default router;

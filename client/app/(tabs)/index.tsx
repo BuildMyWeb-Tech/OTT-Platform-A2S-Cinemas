@@ -70,9 +70,18 @@ export default function Home() {
         return date.toLocaleDateString();
     };
 
+    // Track whether we've already loaded once — avoids re-showing the
+    // full-screen spinner (and re-fetching everything) on every tab focus
+    const hasLoadedOnce = useRef(false);
+
     useFocusEffect(
         useCallback(() => {
-            fetchData();
+            if (!hasLoadedOnce.current) {
+                fetchData();
+            } else {
+                // Light background refresh — don't block UI with spinner
+                refreshSilently();
+            }
         }, [])
     );
 
@@ -87,7 +96,34 @@ export default function Home() {
         }, 3000);
         return () => clearInterval(interval);
     }, [featuredMovies.length]);
-const fetchData = async () => {
+
+    const fetchData = async () => {
+        try {
+            // Only request fields the Home screen actually renders — smaller payload, faster parse
+            const [featuredRes, allRes, categoriesRes] = await Promise.all([
+                api.get("/movies?featured=true&limit=5"),
+                api.get("/movies?limit=12"),
+                api.get("/categories"),
+            ]);
+            setFeaturedMovies(featuredRes.data.data || []);
+            setAllMovies(allRes.data.data || []);
+            setCategories(categoriesRes.data.data || []);
+            hasLoadedOnce.current = true;
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+        } finally {
+            setLoading(false);
+        }
+
+        // Notifications fetched separately — never blocks the movie grid
+        api.get("/notifications")
+            .then(({ data }) => setNotifications(data.data || []))
+            .catch((error) => console.error("Failed to fetch notifications:", error));
+    };
+
+    // Re-fetch on subsequent focuses without flipping the loading spinner back on —
+    // keeps currently-rendered movies visible while fresh data loads behind them
+    const refreshSilently = async () => {
         try {
             const [featuredRes, allRes, categoriesRes] = await Promise.all([
                 api.get("/movies?featured=true&limit=5"),
@@ -98,15 +134,12 @@ const fetchData = async () => {
             setAllMovies(allRes.data.data || []);
             setCategories(categoriesRes.data.data || []);
         } catch (error) {
-            console.error("Failed to fetch data:", error);
-        } finally {
-            setLoading(false);
+            console.error("Failed to refresh data:", error);
         }
 
-        // Notifications fetched separately — doesn't block movie grid rendering
         api.get("/notifications")
             .then(({ data }) => setNotifications(data.data || []))
-            .catch((error) => console.error("Failed to fetch notifications:", error));
+            .catch(() => {});
     };
 
     return (

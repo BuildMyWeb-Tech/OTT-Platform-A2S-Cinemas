@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Movie from "../models/Movie.js";
-import Category from "../models/Category.js";          // ← ADD THIS LINE
+import Category from "../models/Category.js";
 import { deleteFromS3 } from "../config/s3.js";
 import Notification from "../models/Notification.js"
 
@@ -27,53 +27,54 @@ export const getMovies = async (req: Request, res: Response) => {
         if (featured === "true") query.isFeatured = true;
 
         // Category filter — supports either ObjectId or slug
-       // Category filter — supports either ObjectId or slug
-const catFilter = categoryId || category;
-if (catFilter) {
-    const catFilterStr = String(catFilter);
-    if (isValidObjectId(catFilterStr)) {
-        query.$or = [
-            { categories: catFilterStr },
-            { categoryId: catFilterStr },
-        ];
-    } else {
-        // Slug lookup — Category is now imported at top of file
-        const cat = await Category.findOne({ slug: catFilterStr });
-        if (cat) {
-            query.$or = [
-                { categories: cat._id },
-                { categoryId: cat._id },
-            ];
-        } else {
-            return res.json({
-                success: true,
-                data: [],
-                pagination: { total: 0, page: Number(page), pages: 0 },
-            });
+        const catFilter = categoryId || category;
+        if (catFilter) {
+            const catFilterStr = String(catFilter);
+            if (isValidObjectId(catFilterStr)) {
+                query.$or = [
+                    { categories: catFilterStr },
+                    { categoryId: catFilterStr },
+                ];
+            } else {
+                // Slug lookup — Category is imported at top of file
+                const cat = await Category.findOne({ slug: catFilterStr });
+                if (cat) {
+                    query.$or = [
+                        { categories: cat._id },
+                        { categoryId: cat._id },
+                    ];
+                } else {
+                    return res.json({
+                        success: true,
+                        data: [],
+                        pagination: { total: 0, page: Number(page), pages: 0 },
+                    });
+                }
+            }
         }
-    }
-}
 
-        // Search — case-insensitive regex (fixes the search bug)
-        // Falls back from $text to regex for reliability
+        // Search — case-insensitive, regex-safe
         if (search && String(search).trim()) {
             const term = String(search).trim();
-            const rx = new RegExp(term, "i");
+            const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // escape regex metacharacters
+            const rx = new RegExp(escaped, "i");
             query.$or = [
                 { title: rx },
                 { description: rx },
                 { genre: rx },
             ];
-            // Remove any conflicting $text query
             delete query.$text;
         }
 
         const total = await Movie.countDocuments(query);
 
+        // Performance: only populate "categories" — "categoryId" is the legacy
+        // single-category field no longer rendered anywhere on the client,
+        // so populating it was doing a redundant join lookup per movie on
+        // every single list request (Home, Browse, Admin movies list).
         const movies = await Movie.find(query)
             .select("-videoKey")
             .populate("categories", "name slug")
-            .populate("categoryId", "name slug")
             .skip((Number(page) - 1) * Number(limit))
             .limit(Number(limit))
             .sort("-createdAt");
@@ -94,7 +95,6 @@ if (catFilter) {
 };
 
 // ── GET /api/movies/search/suggestions ───────────────────────────────────────
-// Auto-suggest as user types — returns just titles
 export const getSearchSuggestions = async (req: Request, res: Response) => {
     try {
         const { q } = req.query;
@@ -103,7 +103,9 @@ export const getSearchSuggestions = async (req: Request, res: Response) => {
             return res.json({ success: true, data: [] });
         }
 
-        const rx = new RegExp(String(q).trim(), "i");
+        const term = String(q).trim();
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const rx = new RegExp(escaped, "i");
         const movies = await Movie.find(
             { isActive: true, title: rx },
             { title: 1, poster: 1, price: 1 }
@@ -128,8 +130,7 @@ export const getMovie = async (req: Request, res: Response) => {
 
         const movie = await Movie.findById(id)
             .select("-videoKey")
-            .populate("categories", "name slug")
-            .populate("categoryId", "name");
+            .populate("categories", "name slug");
 
         if (!movie) {
             return res.status(404).json({ success: false, message: "Movie not found" });
@@ -201,7 +202,7 @@ export const createMovie = async (req: Request, res: Response) => {
         // Populate categories for response
         await movie.populate("categories", "name slug");
 
-// Create notification for new movie
+        // Create notification for new movie
         await Notification.create({
             title: "New Movie Added!",
             message: `${movie.title} is now available to watch.`,

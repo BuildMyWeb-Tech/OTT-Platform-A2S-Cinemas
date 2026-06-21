@@ -34,27 +34,46 @@ export default function AddMoviePage() {
     const [saving, setSaving] = useState(false);
     const [serverError, setServerError] = useState("");
 
-    // useEffect(() => {
-    //     api.get("/categories?all=true").then(({ data }) => setCategories(data.data || []));
-    // }, []);
+    // Tracks whether the form was successfully submitted — used to decide
+    // whether to clean up an orphaned S3 video upload on unmount/navigation away
+    const savedSuccessfully = useRef(false);
+    // Keep a live ref of the uploaded video key so the unmount cleanup effect
+    // always sees the latest value without needing it in its dependency array
+    const videoKeyRef = useRef("");
+    useEffect(() => { videoKeyRef.current = video.url; }, [video.url]);
 
     useEffect(() => {
-    api.get("/categories?all=true").then(({ data }) => {
-        // Only show active categories in the selectable dropdown
-        setCategories((data.data || []).filter((c: Category) => c.isActive));
-    });
-}, []);
+        api.get("/categories?all=true").then(({ data }) => {
+            // Only show active categories in the selectable dropdown
+            setCategories((data.data || []).filter((c: Category) => c.isActive));
+        });
+    }, []);
 
     useEffect(() => {
-    if (!catDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-        if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
-            setCatDropdownOpen(false);
-        }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-}, [catDropdownOpen]);
+        if (!catDropdownOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
+                setCatDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [catDropdownOpen]);
+
+    // Cleanup-on-leave: if a video was uploaded to S3 but the movie was never
+    // saved, delete the orphaned file when the admin navigates away or unmounts
+    // this page (e.g. clicks Cancel, browser back, or closes the tab).
+    useEffect(() => {
+        return () => {
+            if (videoKeyRef.current && !savedSuccessfully.current) {
+                api.delete("/admin/cleanup-upload", { data: { key: videoKeyRef.current } })
+                    .catch(() => {
+                        // Best-effort — if cleanup fails, the file remains in S3
+                        // and can be cleared later by a manual/scheduled sweep.
+                    });
+            }
+        };
+    }, []);
 
     const setField = (key: string) => (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -105,11 +124,20 @@ export default function AddMoviePage() {
                 xhr.onload = () => xhr.status === 200 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`));
                 xhr.onerror = () => reject(new Error("Network error"));
                 xhr.open("PUT", uploadUrl);
-xhr.setRequestHeader("Content-Type", file.type);  // MUST match what was signed
-xhr.send(file);
+                xhr.setRequestHeader("Content-Type", file.type);  // MUST match what was signed
+                xhr.send(file);
             });
             setVideo((v) => ({ ...v, url: key, uploading: false, progress: 100 }));
         } catch (err: any) { setVideo((v) => ({ ...v, uploading: false, error: err.message })); }
+    };
+
+    // If the admin removes the selected video before saving, clean it up
+    // immediately rather than waiting for unmount
+    const removeVideo = () => {
+        if (video.url) {
+            api.delete("/admin/cleanup-upload", { data: { key: video.url } }).catch(() => {});
+        }
+        setVideo(emptyUpload());
     };
 
     const validate = () => {
@@ -142,6 +170,10 @@ xhr.send(file);
                 isFeatured: form.isFeatured,
                 categories: selectedCategories,
             });
+            // Mark as saved BEFORE navigating away — prevents the unmount
+            // cleanup effect from deleting the video that's now attached to
+            // the newly-created movie document
+            savedSuccessfully.current = true;
             router.push("/movies");
         } catch (err: any) {
             setServerError(err.response?.data?.message || "Failed to create movie");
@@ -241,8 +273,9 @@ xhr.send(file);
                                 <div className="flex-1">
                                     <p className="text-white text-sm">Video uploaded to S3 ✓</p>
                                     <p className="text-gray-500 text-xs font-mono mt-0.5">{video.url}</p>
+                                    <p className="text-amber-400 text-xs mt-1">Not saved yet — will be removed if you leave without creating the movie</p>
                                 </div>
-                                <button type="button" onClick={() => setVideo(emptyUpload())} className="p-1.5 text-gray-500 hover:text-white"><X size={16} /></button>
+                                <button type="button" onClick={removeVideo} className="p-1.5 text-gray-500 hover:text-white"><X size={16} /></button>
                             </div>
                         )}
                     </div>
@@ -317,20 +350,20 @@ xhr.send(file);
                                 onChange={setField("expiryDays")} error={errors.expiryDays} />
                         </div>
 
-      <div className="space-y-1.5">
-    <label className="text-sm text-gray-400">Featured</label>
-    <div className="flex items-center gap-3 h-[42px]">
-        <button
-            type="button"
-            data-testid="movie-featured-toggle"
-            onClick={() => setForm((f: any) => ({ ...f, isFeatured: !f.isFeatured }))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-[#E50914]" : "bg-[#2E2E3E]"}`}
-        >
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${form.isFeatured ? "translate-x-5" : "translate-x-0.5"}`} />
-        </button>
-        <span className="text-sm text-gray-400">{form.isFeatured ? "Featured" : "Not Featured"}</span>
-    </div>
-</div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm text-gray-400">Featured</label>
+                            <div className="flex items-center gap-3 h-[42px]">
+                                <button
+                                    type="button"
+                                    data-testid="movie-featured-toggle"
+                                    onClick={() => setForm((f: any) => ({ ...f, isFeatured: !f.isFeatured }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${form.isFeatured ? "bg-[#E50914]" : "bg-[#2E2E3E]"}`}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${form.isFeatured ? "translate-x-5" : "translate-x-0.5"}`} />
+                                </button>
+                                <span className="text-sm text-gray-400">{form.isFeatured ? "Featured" : "Not Featured"}</span>
+                            </div>
+                        </div>
 
                         <Input label="Trailer URL (optional)" placeholder="https://commondatastorage.googleapis.com/..."
                             value={form.trailerUrl} onChange={setField("trailerUrl")} />
