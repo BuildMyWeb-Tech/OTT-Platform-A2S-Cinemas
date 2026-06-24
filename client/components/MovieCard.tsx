@@ -1,60 +1,64 @@
-import { COLORS, LICENSE_STATUS_COLOR } from "@/constants";
+import { useTheme } from "@/context/ThemeContext";
 import { MovieCardProps } from "@/constants/types";
 import { Link } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, Image, Text, TouchableOpacity, View } from "react-native";
+
+const { width } = Dimensions.get("window");
+const CARD_W = (width - 48) / 2;
+const CARD_H = CARD_W * 1.45;
 
 export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: MovieCardProps) {
-    const statusColor = isPurchased ? LICENSE_STATUS_COLOR(daysLeft, true) : null;
+    const { colors } = useTheme();
 
-    // Prefer dynamic categories over legacy genre field
     const categoryLabel = (movie.categories && movie.categories.length > 0)
-        ? movie.categories.map((c: any) => c.name).join(", ")
+        ? (movie.categories[0] as any).name || movie.genre
         : movie.genre;
 
     return (
         <Link href={`/movie/${movie._id}`} asChild>
             <TouchableOpacity
-                style={{
-                    width: "48%", marginBottom: 14,
-                    backgroundColor: "#fff",
-                    borderRadius: 10,
-                    overflow: "hidden",
-                    borderWidth: 0.5,
-                    borderColor: "#eee",
-                }}
-                activeOpacity={0.85}
+                style={{ width: CARD_W, marginBottom: 16 }}
+                activeOpacity={0.82}
             >
-                {/* Poster */}
-                <View style={{ height: 180, backgroundColor: "#1a1a2e", position: "relative" }}>
+                <View style={{
+                    width: CARD_W, height: CARD_H,
+                    borderRadius: 12, overflow: "hidden",
+                    backgroundColor: colors.card,
+                }}>
                     <Image
                         source={{ uri: movie.poster }}
                         style={{ width: "100%", height: "100%" }}
                         resizeMode="cover"
                     />
 
-                    {/* Price badge */}
-                    {!isPurchased && (
+                    <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.8)"]}
+                        locations={[0.5, 1]}
+                        style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: CARD_H * 0.5 }}
+                    />
+
+                    {/* Price / owned badge */}
+                    {isPurchased ? (
+                        <View style={{
+                            position: "absolute", top: 8, right: 8,
+                            backgroundColor: "#1D9E75",
+                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                        }}>
+                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+                                {daysLeft}d
+                            </Text>
+                        </View>
+                    ) : (
                         <View style={{
                             position: "absolute", top: 8, left: 8,
                             backgroundColor: "rgba(0,0,0,0.75)",
                             borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
                         }}>
-                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>
+                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
                                 ₹{movie.price}
-                            </Text>
-                        </View>
-                    )}
-
-                    {/* Purchased badge */}
-                    {isPurchased && statusColor && (
-                        <View style={{
-                            position: "absolute", top: 8, right: 8,
-                            backgroundColor: statusColor.bg,
-                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-                        }}>
-                            <Text style={{ color: statusColor.text, fontSize: 10, fontWeight: "700" }}>
-                                {statusColor.label}
                             </Text>
                         </View>
                     )}
@@ -62,28 +66,52 @@ export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: 
                     {/* Featured badge */}
                     {movie.isFeatured && (
                         <View style={{
-                            position: "absolute", bottom: 8, left: 8,
-                            backgroundColor: COLORS.accent,
-                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
+                            position: "absolute", top: 8, right: isPurchased ? 54 : 8,
+                            backgroundColor: "#E50914",
+                            borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3,
                         }}>
-                            <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700" }}>FEATURED</Text>
+                            <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>
+                                NEW
+                            </Text>
                         </View>
                     )}
-                </View>
 
-                {/* Info */}
-                <View style={{ padding: 10 }}>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.primary, marginBottom: 2 }} numberOfLines={1}>
-                        {movie.title}
-                    </Text>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <Text style={{ fontSize: 11, color: COLORS.secondary }} numberOfLines={1}>
-                            {categoryLabel}
+                    {/* Bottom info overlay */}
+                    <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 10 }}>
+                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }} numberOfLines={1}>
+                            {movie.title}
                         </Text>
-                        <Text style={{ fontSize: 11, color: COLORS.secondary }}>
-                            {movie.duration ? `${movie.duration}m` : `${movie.expiryDays}d access`}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 }}>
+                            {categoryLabel ? (
+                                <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 10 }} numberOfLines={1}>
+                                    {categoryLabel}
+                                </Text>
+                            ) : null}
+                            {movie.duration ? (
+                                <>
+                                    <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>•</Text>
+                                    <Text style={{ color: "rgba(255,255,255,0.65)", fontSize: 10 }}>
+                                        {movie.duration}m
+                                    </Text>
+                                </>
+                            ) : null}
+                        </View>
                     </View>
+
+                    {/* Ratings */}
+                    {movie.ratings?.average > 0 && (
+                        <View style={{
+                            position: "absolute", bottom: 38, right: 8,
+                            flexDirection: "row", alignItems: "center", gap: 3,
+                            backgroundColor: "rgba(0,0,0,0.6)",
+                            borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2,
+                        }}>
+                            <Ionicons name="star" size={10} color="#FFD700" />
+                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+                                {movie.ratings.average.toFixed(1)}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             </TouchableOpacity>
         </Link>
