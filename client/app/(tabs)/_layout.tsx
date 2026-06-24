@@ -1,25 +1,27 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { COLORS } from "@/constants";
-import { useLicense } from "@/context/LicenseContext";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function TabLayout() {
-    const { activeLicenses } = useLicense();   // use activeLicenses directly
+    const { colors } = useTheme();
 
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: COLORS.accent,
-                tabBarInactiveTintColor: "#CDCDE0",
-                tabBarShowLabel: true,
-                tabBarLabelStyle: { fontSize: 10, marginBottom: 2 },
                 tabBarStyle: {
-                    backgroundColor: "#fff",
-                    borderTopWidth: 1,
-                    borderTopColor: "#F0F0F0",
+                    backgroundColor: colors.tabBar,
+                    borderTopColor: colors.tabBarBorder,
+                    borderTopWidth: 0.5,
                     height: 60,
-                    paddingTop: 6,
+                    paddingBottom: 8,
+                    paddingTop: 4,
+                },
+                tabBarActiveTintColor: colors.tabBarActive,
+                tabBarInactiveTintColor: colors.tabBarInactive,
+                tabBarLabelStyle: {
+                    fontSize: 11,
+                    fontWeight: "600",
                 },
             }}
         >
@@ -27,8 +29,8 @@ export default function TabLayout() {
                 name="index"
                 options={{
                     title: "Home",
-                    tabBarIcon: ({ color, focused }) => (
-                        <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="home" size={size} color={color} />
                     ),
                 }}
             />
@@ -36,8 +38,8 @@ export default function TabLayout() {
                 name="browse"
                 options={{
                     title: "Browse",
-                    tabBarIcon: ({ color, focused }) => (
-                        <Ionicons name={focused ? "search" : "search-outline"} size={24} color={color} />
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="search" size={size} color={color} />
                     ),
                 }}
             />
@@ -45,19 +47,17 @@ export default function TabLayout() {
                 name="library"
                 options={{
                     title: "My Library",
-                    tabBarIcon: ({ color, focused }) => (
-                        <Ionicons name={focused ? "library" : "library-outline"} size={24} color={color} />
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="library" size={size} color={color} />
                     ),
-                    tabBarBadge: activeLicenses.length > 0 ? activeLicenses.length : undefined,
-                    tabBarBadgeStyle: { backgroundColor: COLORS.accent },
                 }}
             />
             <Tabs.Screen
                 name="profile"
                 options={{
                     title: "Profile",
-                    tabBarIcon: ({ color, focused }) => (
-                        <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="person" size={size} color={color} />
                     ),
                 }}
             />

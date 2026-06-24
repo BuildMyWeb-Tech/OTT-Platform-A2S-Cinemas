@@ -1,57 +1,38 @@
-import { Stack, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/context/AuthContext";
 import { LicenseProvider } from "@/context/LicenseContext";
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import Toast from "react-native-toast-message";
-import "@/global.css";
-import { useEffect } from "react";
-import * as Linking from "expo-linking";
 
-export default function RootLayout() {
-    const router = useRouter();
-
-   useEffect(() => {
-    const sub = Linking.addEventListener("url", ({ url }) => {
-        const parsed = Linking.parse(url);
-        // Changed: "client" scheme (matches app.json)
-        if (parsed.scheme === "a2scinemas" && parsed.path === "payment") {
-            router.push({
-                pathname: "/payment/callback",
-                params: {
-                    status: parsed.queryParams?.status as string,
-                    movie_id: parsed.queryParams?.movie_id as string,
-                    reason: parsed.queryParams?.reason as string,
-                },
-            } as any);
-        }
-    });
-
-    Linking.getInitialURL().then((url) => {
-        if (!url) return;
-        const parsed = Linking.parse(url);
-        if (parsed.scheme === "a2scinemas" && parsed.path === "payment") {
-            router.push({
-                pathname: "/payment/callback",
-                params: {
-                    status: parsed.queryParams?.status as string,
-                    movie_id: parsed.queryParams?.movie_id as string,
-                    reason: parsed.queryParams?.reason as string,
-                },
-            } as any);
-        }
-    });
-
-    return () => sub.remove();
-}, []);
+function AppContent() {
+    const { isDark } = useTheme();
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <>
+            <StatusBar style={isDark ? "light" : "dark"} />
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="movie/[id]" />
+                <Stack.Screen name="player/[id]" />
+                <Stack.Screen name="payment/callback" />
+                <Stack.Screen name="support" />
+                <Stack.Screen name="purchases" />
+            </Stack>
+            <Toast />
+        </>
+    );
+}
+
+export default function RootLayout() {
+    return (
+        <ThemeProvider>
             <AuthProvider>
                 <LicenseProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                    <Toast />
+                    <AppContent />
                 </LicenseProvider>
             </AuthProvider>
-        </GestureHandlerRootView>
+        </ThemeProvider>
     );
 }

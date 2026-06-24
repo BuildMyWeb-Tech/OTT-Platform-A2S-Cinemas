@@ -1,3 +1,5 @@
+// Legacy COLORS kept for backward compatibility during migration —
+// new code should use useTheme().colors instead
 export const COLORS = {
     primary: "#111111",
     secondary: "#666666",
@@ -28,6 +30,34 @@ export const LICENSE_STATUS_COLOR = (daysLeft: number, isActive: boolean) => {
     if (daysLeft <= 3) return { bg: "#faeeda", text: "#633806", label: `${daysLeft}d left` };
     if (daysLeft <= 7) return { bg: "#fef9ee", text: "#ef9f27", label: `${daysLeft}d left` };
     return { bg: "#e8f8f0", text: "#0f6e56", label: `${daysLeft}d left` };
+};
+
+// Dark-mode-aware license status colors
+export const LICENSE_STATUS_COLOR_THEMED = (
+    daysLeft: number,
+    isActive: boolean,
+    isDark: boolean
+) => {
+    if (!isActive) return {
+        bg: isDark ? "#3D1515" : "#fcebeb",
+        text: isDark ? "#FF6B6B" : "#a32d2d",
+        label: "Expired"
+    };
+    if (daysLeft <= 3) return {
+        bg: isDark ? "#3D2C0A" : "#faeeda",
+        text: isDark ? "#FFB347" : "#633806",
+        label: `${daysLeft}d left`
+    };
+    if (daysLeft <= 7) return {
+        bg: isDark ? "#2A2800" : "#fef9ee",
+        text: isDark ? "#EF9F27" : "#ef9f27",
+        label: `${daysLeft}d left`
+    };
+    return {
+        bg: isDark ? "#0D2E22" : "#e8f8f0",
+        text: isDark ? "#1D9E75" : "#0f6e56",
+        label: `${daysLeft}d left`
+    };
 };
 
 export const CATEGORY_ICON_MAP: Record<string, string> = {
