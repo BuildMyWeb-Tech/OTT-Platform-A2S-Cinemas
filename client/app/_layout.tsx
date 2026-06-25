@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { LicenseProvider } from "@/context/LicenseContext";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import Toast from "react-native-toast-message";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function AppContent() {
     const { isDark } = useTheme();
@@ -27,6 +28,7 @@ function AppContent() {
 
 export default function RootLayout() {
     return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider>
             <AuthProvider>
                 <LicenseProvider>
@@ -34,5 +36,6 @@ export default function RootLayout() {
                 </LicenseProvider>
             </AuthProvider>
         </ThemeProvider>
-    );
+    </GestureHandlerRootView>
+);
 }

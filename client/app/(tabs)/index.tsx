@@ -219,8 +219,7 @@ export default function Home() {
                                 </Text>
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                                     <ThemeToggle size={20} />
-                                    <TouchableOpacity
-                                        onPress={() => setShowNotifications(true)}
+                                    <TouchableOpacity onPress={() => router.push("/notifications" as any)}
                                         style={{ position: "relative" }}
                                     >
                                         <Ionicons name="notifications-outline" size={24} color="#fff" />
