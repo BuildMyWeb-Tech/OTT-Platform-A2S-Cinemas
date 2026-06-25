@@ -7,12 +7,15 @@ import Toast from "react-native-toast-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function AppContent() {
-    const { isDark } = useTheme();
+    const { isDark, colors } = useTheme();
 
     return (
         <>
             <StatusBar style={isDark ? "light" : "dark"} />
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+            }}>
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="movie/[id]" />
@@ -20,6 +23,7 @@ function AppContent() {
                 <Stack.Screen name="payment/callback" />
                 <Stack.Screen name="support" />
                 <Stack.Screen name="purchases" />
+                <Stack.Screen name="notifications" />
             </Stack>
             <Toast />
         </>
