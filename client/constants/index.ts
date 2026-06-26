@@ -60,6 +60,21 @@ export const LICENSE_STATUS_COLOR_THEMED = (
     };
 };
 
+// Static categories fallback — used by admin product edit screens
+// that need a hardcoded list before dynamic categories load from API
+export const CATEGORIES = [
+    { id: "action",       name: "Action",       label: "Action",       slug: "action" },
+    { id: "drama",        name: "Drama",         label: "Drama",         slug: "drama" },
+    { id: "comedy",       name: "Comedy",        label: "Comedy",        slug: "comedy" },
+    { id: "thriller",     name: "Thriller",      label: "Thriller",      slug: "thriller" },
+    { id: "horror",       name: "Horror",        label: "Horror",        slug: "horror" },
+    { id: "romance",      name: "Romance",       label: "Romance",       slug: "romance" },
+    { id: "scifi",        name: "Sci-Fi",        label: "Sci-Fi",        slug: "scifi" },
+    { id: "documentary",  name: "Documentary",   label: "Documentary",   slug: "documentary" },
+    { id: "animation",    name: "Animation",     label: "Animation",     slug: "animation" },
+    { id: "other",        name: "Other",         label: "Other",         slug: "other" },
+];
+
 export const CATEGORY_ICON_MAP: Record<string, string> = {
     action: "flash-outline",
     drama: "film-outline",

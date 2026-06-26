@@ -156,55 +156,140 @@ export default function MovieDetail() {
     };
 
     const handleBuy = async () => {
-        if (!isSignedIn) {
-            return Alert.alert("Sign in required", "Please sign in to purchase movies", [
+    if (!isSignedIn) {
+        return Alert.alert(
+            "Sign in required",
+            "Please sign in to purchase movies",
+            [
                 { text: "Sign In", onPress: () => router.push("/sign-in") },
                 { text: "Cancel", style: "cancel" },
-            ]);
-        }
-        setBuyLoading(true);
-        try {
-            const orderRes = await api.post("/payment/create-order", { movieId: id });
-            if (!orderRes.data.success) {
-                Toast.show({ type: "error", text1: "Error", text2: orderRes.data.message || "Failed to create order" });
-                return;
-            }
-            const { orderId, amount, currency, key } = orderRes.data.data;
-            const options = {
-                key, amount: String(amount), currency: currency || "INR",
-                order_id: orderId, name: "A2S Cinemas",
-                description: `Access: ${movie?.title}`,
-                prefill: { email: user?.email || "", contact: "9999999999" },
-                theme: { color: "#E50914" },
-            };
-            const rzpData: any = await RazorpayCheckout.open(options);
-            setCheckingPayment(true);
-            const verifyRes = await api.post("/payment/verify", {
-                razorpay_order_id: rzpData.razorpay_order_id,
-                razorpay_payment_id: rzpData.razorpay_payment_id,
-                razorpay_signature: rzpData.razorpay_signature,
+            ]
+        );
+    }
+
+    setBuyLoading(true);
+    try {
+        const orderRes = await api.post("/payment/create-order", { movieId: id });
+        if (!orderRes.data.success) {
+            Toast.show({
+                type: "error",
+                text1: "Order failed",
+                text2: orderRes.data.message || "Failed to create order",
             });
-            if (verifyRes.data.success) {
-                await fetchLicenses();
-                await fetchMovie();
-                router.replace({
-                    pathname: "/payment/callback",
-                    params: { status: "success", movie_id: id as string },
-                } as any);
-            } else {
-                Toast.show({ type: "error", text1: "Verification failed", text2: "Please contact support." });
-            }
-        } catch (error: any) {
-            if (error.code === 0 || error.description?.toLowerCase().includes("cancel")) {
+            return;
+        }
+
+        const { orderId, amount, currency, key } = orderRes.data.data;
+
+        const options = {
+            key,
+            amount: String(amount),
+            currency: currency || "INR",
+            order_id: orderId,
+            name: "A2S Cinemas",
+            description: `Access: ${movie?.title}`,
+            prefill: {
+                email: user?.email || "",
+                contact: "9999999999",
+                name: user?.name || "",
+            },
+            theme: { color: "#E50914" },
+            modal: {
+                backdropclose: false,
+                escape: false,
+                handleback: true,
+                confirm_close: true,
+            },
+        };
+
+        let rzpData: any;
+        try {
+            rzpData = await RazorpayCheckout.open(options);
+        } catch (rzpError: any) {
+            // User cancelled or payment failed inside Razorpay UI
+            const code = rzpError?.code ?? rzpError?.error?.code;
+            const desc = rzpError?.description ?? rzpError?.error?.description ?? "";
+            if (code === 0 || desc.toLowerCase().includes("cancel")) {
                 Toast.show({ type: "info", text1: "Payment cancelled" });
             } else {
-                Toast.show({ type: "error", text1: "Payment failed", text2: error.description || "Something went wrong." });
+                Toast.show({
+                    type: "error",
+                    text1: "Payment failed",
+                    text2: desc || "Something went wrong in checkout",
+                });
             }
-        } finally {
-            setCheckingPayment(false);
-            setBuyLoading(false);
+            return;
         }
-    };
+
+        // Handle both snake_case and camelCase SDK response formats
+        const paymentId =
+            rzpData.razorpay_payment_id ||
+            rzpData.paymentId ||
+            rzpData.payment_id || "";
+
+        const returnedOrderId =
+            rzpData.razorpay_order_id ||
+            rzpData.orderId ||
+            rzpData.order_id ||
+            orderId; // fallback to the orderId we already have
+
+        const signature =
+            rzpData.razorpay_signature ||
+            rzpData.signature || "";
+
+        if (!paymentId || !signature) {
+            Toast.show({
+                type: "error",
+                text1: "Verification failed",
+                text2: "Incomplete payment response. Please contact support.",
+            });
+            return;
+        }
+
+        setCheckingPayment(true);
+
+        let verifyRes: any;
+        try {
+            verifyRes = await api.post("/payment/verify", {
+                razorpay_order_id: returnedOrderId,
+                razorpay_payment_id: paymentId,
+                razorpay_signature: signature,
+            });
+        } catch (verifyError: any) {
+            const msg = verifyError?.response?.data?.message || "Verification request failed";
+            Toast.show({
+                type: "error",
+                text1: "Verification error",
+                text2: msg,
+            });
+            return;
+        }
+
+        if (verifyRes?.data?.success) {
+            await fetchLicenses();
+            await fetchMovie();
+            router.replace({
+                pathname: "/payment/callback",
+                params: { status: "success", movie_id: id as string },
+            } as any);
+        } else {
+            Toast.show({
+                type: "error",
+                text1: "Verification failed",
+                text2: verifyRes?.data?.message || "Please contact support.",
+            });
+        }
+    } catch (error: any) {
+        Toast.show({
+            type: "error",
+            text1: "Payment error",
+            text2: error?.message || "Something went wrong.",
+        });
+    } finally {
+        setCheckingPayment(false);
+        setBuyLoading(false);
+    }
+};
 
     const handleShare = async () => {
         try {

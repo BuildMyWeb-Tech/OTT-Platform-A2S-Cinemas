@@ -5,9 +5,24 @@ import { LicenseProvider } from "@/context/LicenseContext";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import Toast from "react-native-toast-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useEffect , useState} from "react";
+import SplashLoader from "@/components/SplashLoader";
 
 function AppContent() {
     const { isDark, colors } = useTheme();
+    const [appReady, setAppReady] = useState(false);
+
+    useEffect(() => {
+        // Warm up backend on app open
+        fetch("https://ott-platform-a2s-cinemas.onrender.com/health")
+            .catch(() => {});
+        // Small delay to let theme load from AsyncStorage
+        setTimeout(() => setAppReady(true), 300);
+    }, []);
+
+    if (!appReady) {
+        return <SplashLoader message="Starting up..." />;
+    }
 
     return (
         <>

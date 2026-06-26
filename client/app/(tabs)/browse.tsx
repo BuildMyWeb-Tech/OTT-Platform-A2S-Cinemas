@@ -12,6 +12,7 @@ import { getCategoryIcon } from "@/constants";
 import { Movie } from "@/constants/types";
 import { useLicense } from "@/context/LicenseContext";
 import { useTheme } from "@/context/ThemeContext";
+import SplashLoader from "@/components/SplashLoader";
 
 const { width } = Dimensions.get("window");
 const CARD_W = (width - 48) / 2;
@@ -334,12 +335,9 @@ export default function Browse() {
             </SafeAreaView>
 
             {/* ── MOVIES GRID ── */}
-            {loading ? (
-                <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                    <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 14 }}>Loading movies...</Text>
-                </View>
-            ) : (
+           {loading ? (
+    <SplashLoader message="Searching..." />
+) : (
                 <FlatList
                     data={movies}
                     keyExtractor={(item) => item._id}

@@ -7,45 +7,30 @@ const THEME_KEY = "ott_theme_preference";
 export type ThemeMode = "light" | "dark" | "system";
 
 export interface ThemeColors {
-    // Backgrounds
     background: string;
     surface: string;
     surfaceVariant: string;
     card: string;
     cardElevated: string;
-
-    // Text
     textPrimary: string;
     textSecondary: string;
     textMuted: string;
     textInverse: string;
-
-    // Brand
     accent: string;
     accentDim: string;
-
-    // Status
     success: string;
     warning: string;
     error: string;
-
-    // UI elements
     border: string;
     divider: string;
     overlay: string;
     skeleton: string;
-
-    // Navigation
     tabBar: string;
     tabBarBorder: string;
     tabBarActive: string;
     tabBarInactive: string;
-
-    // Badges / pills
     badgeBg: string;
     badgeText: string;
-
-    // Input
     inputBg: string;
     inputBorder: string;
     inputText: string;
@@ -58,32 +43,25 @@ const LIGHT_COLORS: ThemeColors = {
     surfaceVariant: "#F0F0F0",
     card: "#FFFFFF",
     cardElevated: "#FFFFFF",
-
     textPrimary: "#111111",
     textSecondary: "#555555",
     textMuted: "#999999",
     textInverse: "#FFFFFF",
-
     accent: "#E50914",
     accentDim: "#E5091420",
-
     success: "#1D9E75",
     warning: "#EF9F27",
     error: "#FF4444",
-
     border: "#EEEEEE",
     divider: "#F0F0F0",
     overlay: "rgba(0,0,0,0.5)",
     skeleton: "#E8E8E8",
-
     tabBar: "#FFFFFF",
     tabBarBorder: "#F0F0F0",
     tabBarActive: "#E50914",
     tabBarInactive: "#AAAAAA",
-
     badgeBg: "#F0F0F0",
     badgeText: "#555555",
-
     inputBg: "#F5F5F5",
     inputBorder: "#E8E8E8",
     inputText: "#111111",
@@ -96,32 +74,25 @@ const DARK_COLORS: ThemeColors = {
     surfaceVariant: "#1C1C22",
     card: "#1A1A22",
     cardElevated: "#22222C",
-
     textPrimary: "#F0F0F0",
     textSecondary: "#AAAAAA",
     textMuted: "#666666",
     textInverse: "#111111",
-
     accent: "#E50914",
     accentDim: "#E5091425",
-
     success: "#1D9E75",
     warning: "#EF9F27",
     error: "#FF4444",
-
     border: "#2A2A35",
     divider: "#1E1E28",
     overlay: "rgba(0,0,0,0.75)",
     skeleton: "#1E1E28",
-
     tabBar: "#0F0F16",
     tabBarBorder: "#1E1E28",
     tabBarActive: "#E50914",
     tabBarInactive: "#555566",
-
     badgeBg: "#22222C",
     badgeText: "#AAAAAA",
-
     inputBg: "#1A1A22",
     inputBorder: "#2A2A35",
     inputText: "#F0F0F0",
@@ -137,16 +108,16 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-    mode: "system",
-    isDark: false,
-    colors: LIGHT_COLORS,
+    mode: "dark",
+    isDark: true,
+    colors: DARK_COLORS,
     setMode: () => {},
     toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const systemScheme = useColorScheme();
-    const [mode, setModeState] = useState<ThemeMode>("dark"); // default dark for OTT
+    const [mode, setModeState] = useState<ThemeMode>("dark");
 
     useEffect(() => {
         AsyncStorage.getItem(THEME_KEY).then((saved) => {
@@ -161,9 +132,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem(THEME_KEY, newMode);
     };
 
+    // FIX: use mode state directly, not derived isDark, to avoid stale closure
     const toggleTheme = () => {
-        const next = isDark ? "light" : "dark";
-        setMode(next);
+        setModeState((currentMode) => {
+            // If system, treat as whatever system currently is, then toggle
+            const currentlyDark =
+                currentMode === "dark" ? true :
+                currentMode === "light" ? false :
+                systemScheme === "dark";
+
+            const next: ThemeMode = currentlyDark ? "light" : "dark";
+            // Persist async without blocking state update
+            AsyncStorage.setItem(THEME_KEY, next).catch(() => {});
+            return next;
+        });
     };
 
     const isDark =

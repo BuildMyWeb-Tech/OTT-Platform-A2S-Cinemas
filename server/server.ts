@@ -63,7 +63,41 @@ app.get("/api/health", (req, res) => {
 
 // API routes
 console.log("Mounting routes...");
+// Optimized home screen data — single request instead of 3
+app.get("/api/home", async (req, res) => {
+    try {
+        const Movie = (await import("./models/Movie.js")).default;
+        const Category = (await import("./models/Category.js")).default;
+        const Notification = (await import("./models/Notification.js")).default;
 
+        const [featured, movies, categories, notifications] = await Promise.all([
+            Movie.find({ isActive: true, isFeatured: true })
+                .select("-videoKey")
+                .populate("categories", "name slug")
+                .sort("-createdAt")
+                .limit(6)
+                .lean(),
+            Movie.find({ isActive: true })
+                .select("-videoKey")
+                .populate("categories", "name slug")
+                .sort("-createdAt")
+                .limit(12)
+                .lean(),
+            Category.find({ isActive: true })
+                .select("name slug")
+                .sort("name")
+                .lean(),
+            Notification.find()
+                .sort("-createdAt")
+                .limit(20)
+                .lean(),
+        ]);
+
+        res.json({ success: true, data: { featured, movies, categories, notifications } });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/movies", movieRoutes);
 app.use("/api/payment", paymentRoutes);
@@ -126,3 +160,16 @@ const startServer = async () => {
 };
 
 startServer();
+// Self-ping to prevent Render free tier cold starts
+// Pings every 14 minutes — Render spins down after 15min inactivity
+if (process.env.NODE_ENV === "production") {
+    const SELF_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+    setInterval(async () => {
+        try {
+            await fetch(`${SELF_URL}/health`);
+            console.log("Self-ping OK");
+        } catch (e) {
+            console.log("Self-ping failed:", e);
+        }
+    }, 14 * 60 * 1000);
+}

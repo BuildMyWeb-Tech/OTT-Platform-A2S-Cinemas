@@ -74,8 +74,22 @@ export const verifyPayment = async (req: Request, res: Response) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
+        console.log("verifyPayment called:", {
+            orderId: razorpay_order_id,
+            paymentId: razorpay_payment_id,
+            hasSignature: !!razorpay_signature,
+        });
+
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-            return res.status(400).json({ success: false, message: "Missing payment fields" });
+            console.log("Missing fields:", { razorpay_order_id, razorpay_payment_id, razorpay_signature });
+            return res.status(400).json({
+                success: false,
+                message: `Missing payment fields: ${[
+                    !razorpay_order_id && "order_id",
+                    !razorpay_payment_id && "payment_id",
+                    !razorpay_signature && "signature",
+                ].filter(Boolean).join(", ")}`,
+            });
         }
 
         const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -84,12 +98,28 @@ export const verifyPayment = async (req: Request, res: Response) => {
             .update(body)
             .digest("hex");
 
+        console.log("Signature check:", {
+            expected: expectedSignature,
+            received: razorpay_signature,
+            match: expectedSignature === razorpay_signature,
+        });
+
         if (expectedSignature !== razorpay_signature) {
-            return res.status(400).json({ success: false, message: "Invalid payment signature" });
+            return res.status(400).json({
+                success: false,
+                message: "Invalid payment signature",
+            });
         }
 
         const purchase = await Purchase.findOne({ razorpayOrderId: razorpay_order_id });
-        if (!purchase) return res.status(404).json({ success: false, message: "Purchase not found" });
+        console.log("Purchase found:", purchase ? purchase._id : "NOT FOUND");
+
+        if (!purchase) {
+            return res.status(404).json({
+                success: false,
+                message: `Purchase not found for order: ${razorpay_order_id}`,
+            });
+        }
 
         purchase.razorpayPaymentId = razorpay_payment_id;
         purchase.status = "active";
@@ -108,6 +138,8 @@ export const verifyPayment = async (req: Request, res: Response) => {
             $addToSet: { purchasedMovies: purchase.movie },
         });
 
+        console.log("License created:", license._id);
+
         res.json({
             success: true,
             message: "Payment verified. License activated.",
@@ -118,6 +150,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
             },
         });
     } catch (error: any) {
+        console.error("verifyPayment error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

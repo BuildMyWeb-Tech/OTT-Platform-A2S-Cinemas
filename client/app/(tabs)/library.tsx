@@ -11,6 +11,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useLicense } from "@/context/LicenseContext";
 import { useAuth } from "@/context/AuthContext";
 import { License } from "@/constants/types";
+import SplashLoader from "@/components/SplashLoader";
 
 const { width } = Dimensions.get("window");
 const CARD_W = (width - 48) / 2;
@@ -125,11 +126,9 @@ export default function Library() {
                 </View>
 
                 {/* ── CONTENT ── */}
-                {isLoading ? (
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                        <ActivityIndicator size="large" color={colors.accent} />
-                    </View>
-                ) : (
+               {isLoading ? (
+    <SplashLoader message="Loading your library..." />
+) : (
                     <FlatList
                         data={displayed}
                         keyExtractor={(item) => item._id}

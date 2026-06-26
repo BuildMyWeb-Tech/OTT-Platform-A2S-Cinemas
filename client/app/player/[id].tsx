@@ -9,6 +9,7 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import { useVideoPlayer, VideoView } from "expo-video";
 import api from "@/constants/api";
 import { COLORS } from "@/constants";
+import SplashLoader from "@/components/SplashLoader";
 
 export default function Player() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -155,15 +156,9 @@ export default function Player() {
         setShowControls(true);
     };
 
-    if (loading) {
-        return (
-            <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
-                <StatusBar barStyle="light-content" backgroundColor="#000" />
-                <ActivityIndicator size="large" color={COLORS.accent} />
-                <Text style={{ color: "#fff", marginTop: 12 }}>Loading video...</Text>
-            </View>
-        );
-    }
+   if (loading) {
+    return <SplashLoader message="Loading movies..." />;
+}
 
     if (error || !streamUrl) {
         return (

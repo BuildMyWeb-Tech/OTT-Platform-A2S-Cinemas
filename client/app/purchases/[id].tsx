@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import api from "@/constants/api";
 import { COLORS, LICENSE_STATUS_COLOR } from "@/constants";
 import type { Purchase } from "@/constants/types";
+import SplashLoader from "@/components/SplashLoader";
 
 export default function PurchaseDetail() {
     const { id } = useLocalSearchParams();
@@ -27,13 +28,9 @@ export default function PurchaseDetail() {
         }
     };
 
-    if (loading) {
-        return (
-            <SafeAreaView className="flex-1 bg-surface justify-center items-center">
-                <ActivityIndicator size="large" color={COLORS.accent} />
-            </SafeAreaView>
-        );
-    }
+   if (loading) {
+    return <SplashLoader message="Loading movies..." />;
+}
 
     if (!purchase) {
         return (

@@ -14,6 +14,7 @@ import { getCategoryIcon } from "@/constants";
 import { useLicense } from "@/context/LicenseContext";
 import { useTheme } from "@/context/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import SplashLoader from "@/components/SplashLoader";
 
 const { width, height } = Dimensions.get("window");
 const BANNER_HEIGHT = height * 0.52;
@@ -110,60 +111,41 @@ export default function Home() {
             .filter((s) => s.movies.length > 0);
     };
 
-    const fetchData = async () => {
-        try {
-            const [featuredRes, allRes, categoriesRes] = await Promise.all([
-                api.get("/movies?featured=true&limit=8"),
-                api.get("/movies?limit=20"),
-                api.get("/categories"),
-            ]);
-            const cats = categoriesRes.data.data || [];
-            const movies = allRes.data.data || [];
-            setFeaturedMovies(featuredRes.data.data || []);
-            setAllMovies(movies);
-            setCategories(cats);
-            setCategorySections(buildCategorySections(cats, movies));
-            hasLoadedOnce.current = true;
-        } catch (error) {
-            console.error("Failed to fetch data:", error);
-        } finally {
-            setLoading(false);
-        }
-        api.get("/notifications")
-            .then(({ data }) => setNotifications(data.data || []))
-            .catch(() => {});
-    };
+const fetchData = async () => {
+    try {
+        const { data } = await api.get("/home");
+        const { featured, movies, categories, notifications: notifs } = data.data;
+        setFeaturedMovies(featured || []);
+        setAllMovies(movies || []);
+        setCategories(categories || []);
+        setNotifications(notifs || []);
+        setCategorySections(buildCategorySections(categories || [], movies || []));
+        hasLoadedOnce.current = true;
+    } catch (error) {
+        console.error("Failed to fetch home data:", error);
+    } finally {
+        setLoading(false);
+    }
+};
 
-    const refreshSilently = async () => {
-        try {
-            const [featuredRes, allRes, categoriesRes] = await Promise.all([
-                api.get("/movies?featured=true&limit=8"),
-                api.get("/movies?limit=20"),
-                api.get("/categories"),
-            ]);
-            const cats = categoriesRes.data.data || [];
-            const movies = allRes.data.data || [];
-            setFeaturedMovies(featuredRes.data.data || []);
-            setAllMovies(movies);
-            setCategories(cats);
-            setCategorySections(buildCategorySections(cats, movies));
-        } catch {}
-        api.get("/notifications")
-            .then(({ data }) => setNotifications(data.data || []))
-            .catch(() => {});
-    };
+const refreshSilently = async () => {
+    try {
+        const { data } = await api.get("/home");
+        const { featured, movies, categories, notifications: notifs } = data.data;
+        setFeaturedMovies(featured || []);
+        setAllMovies(movies || []);
+        setCategories(categories || []);
+        setNotifications(notifs || []);
+        setCategorySections(buildCategorySections(categories || [], movies || []));
+    } catch {}
+};
 
     const unreadCount = notifications.filter((n) => !readIds.includes(n._id)).length;
     const currentBanner = featuredMovies[bannerIndex];
 
-    if (loading) {
-        return (
-            <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
-                <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-                <ActivityIndicator size="large" color={colors.accent} />
-            </View>
-        );
-    }
+   if (loading) {
+    return <SplashLoader message="Loading movies..." />;
+}
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -175,175 +157,205 @@ export default function Home() {
                 contentContainerStyle={{ paddingBottom: 32 }}
             >
                 {/* ── HERO BANNER ── */}
-                {featuredMovies.length > 0 && (
-                    <View style={{ height: BANNER_HEIGHT, position: "relative" }}>
-                        <ScrollView
-                            ref={bannerScrollRef}
-                            horizontal
-                            pagingEnabled
-                            showsHorizontalScrollIndicator={false}
-                            scrollEventThrottle={16}
-                            onScroll={(e) => {
-                                const slide = Math.round(e.nativeEvent.contentOffset.x / width);
-                                setBannerIndex(slide);
-                            }}
-                        >
-                            {featuredMovies.map((movie) => (
-                                <View key={movie._id} style={{ width, height: BANNER_HEIGHT }}>
-                                    <Image
-                                        source={{ uri: movie.poster }}
-                                        style={{ width: "100%", height: "100%" }}
-                                        resizeMode="cover"
-                                    />
-                                    <LinearGradient
-                                        colors={["transparent", "rgba(0,0,0,0.3)", "rgba(0,0,0,0.92)"]}
-                                        locations={[0.3, 0.65, 1]}
-                                        style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: BANNER_HEIGHT * 0.65 }}
-                                    />
-                                </View>
-                            ))}
-                        </ScrollView>
+{featuredMovies.length > 0 && (
+    <View style={{ height: BANNER_HEIGHT, position: "relative" }}>
+        <ScrollView
+            ref={bannerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={(e) => {
+                const slide = Math.round(e.nativeEvent.contentOffset.x / width);
+                setBannerIndex(slide);
+            }}
+        >
+            {featuredMovies.map((movie) => (
+                <View key={movie._id} style={{ width, height: BANNER_HEIGHT }}>
+                    <Image
+                        source={{ uri: movie.poster }}
+                        style={{ width: "100%", height: "100%" }}
+                        resizeMode="cover"
+                    />
+                    {/* Bottom gradient for text readability */}
+                    <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.3)", "rgba(0,0,0,0.92)"]}
+                        locations={[0.3, 0.65, 1]}
+                        style={{
+                            position: "absolute", bottom: 0, left: 0, right: 0,
+                            height: BANNER_HEIGHT * 0.65,
+                        }}
+                    />
+                </View>
+            ))}
+        </ScrollView>
 
-                        {/* Header overlay — sits on top of banner */}
-                        <SafeAreaView
-                            edges={["top"]}
-                            style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 20 }}
-                        >
+        {/* Permanent top gradient — ensures header is ALWAYS readable
+            regardless of which poster image is showing */}
+        <LinearGradient
+            colors={["rgba(0,0,0,0.72)", "rgba(0,0,0,0.35)", "transparent"]}
+            locations={[0, 0.4, 1]}
+            style={{
+                position: "absolute", top: 0, left: 0, right: 0,
+                height: 130, zIndex: 15,
+            }}
+            pointerEvents="none"
+        />
+
+        {/* Header overlay — sits ABOVE both gradients */}
+        <SafeAreaView
+            edges={["top"]}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 20 }}
+        >
+            <View style={{
+                flexDirection: "row", alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 16, paddingVertical: 10,
+            }}>
+                {/* Brand — always white, always visible */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ fontSize: 13 }}>🎬</Text>
+                    <Text style={{
+                        fontSize: 20, fontWeight: "800", color: "#FFFFFF",
+                        letterSpacing: 0.5,
+                        // Text shadow so it pops even on very bright posters
+                        textShadowColor: "rgba(0,0,0,0.8)",
+                        textShadowOffset: { width: 0, height: 1 },
+                        textShadowRadius: 4,
+                    }}>
+                        A2S Cinemas
+                    </Text>
+                </View>
+
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <ThemeToggle size={20} />
+                    <TouchableOpacity
+                        onPress={() => router.push("/notifications" as any)}
+                        style={{ position: "relative" }}
+                    >
+                        <Ionicons name="notifications-outline" size={24} color="#fff" />
+                        {unreadCount > 0 && (
                             <View style={{
-                                flexDirection: "row", alignItems: "center",
-                                justifyContent: "space-between",
-                                paddingHorizontal: 16, paddingVertical: 10,
+                                position: "absolute", top: -3, right: -3,
+                                backgroundColor: colors.accent,
+                                borderRadius: 8, minWidth: 16, height: 16,
+                                justifyContent: "center", alignItems: "center",
+                                paddingHorizontal: 3,
                             }}>
-                                <Text style={{ fontSize: 22, fontWeight: "800", color: "#fff", letterSpacing: 0.5 }}>
-                                    🎬 A2S Cinemas
+                                <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700" }}>
+                                    {unreadCount > 9 ? "9+" : unreadCount}
                                 </Text>
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                                    <ThemeToggle size={20} />
-                                    <TouchableOpacity onPress={() => router.push("/notifications" as any)}
-                                        style={{ position: "relative" }}
-                                    >
-                                        <Ionicons name="notifications-outline" size={24} color="#fff" />
-                                        {unreadCount > 0 && (
-                                            <View style={{
-                                                position: "absolute", top: -3, right: -3,
-                                                backgroundColor: colors.accent,
-                                                borderRadius: 8, minWidth: 16, height: 16,
-                                                justifyContent: "center", alignItems: "center",
-                                                paddingHorizontal: 3,
-                                            }}>
-                                                <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700" }}>
-                                                    {unreadCount > 9 ? "9+" : unreadCount}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => router.push("/browse")}>
-                                        <Ionicons name="search-outline" size={24} color="#fff" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </SafeAreaView>
-
-                        {/* Banner info + CTA */}
-                        {currentBanner && (
-                            <View style={{
-                                position: "absolute", bottom: 0, left: 0, right: 0,
-                                paddingHorizontal: 20, paddingBottom: 20, zIndex: 10,
-                            }}>
-                                {/* Category tags */}
-                                <View style={{ flexDirection: "row", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                                    {(currentBanner.categories && currentBanner.categories.length > 0
-                                        ? currentBanner.categories.map((c: any) => c.name || c)
-                                        : [currentBanner.genre]
-                                    ).filter(Boolean).map((tag: string, i: number) => (
-                                        <View key={i} style={{
-                                            backgroundColor: "rgba(255,255,255,0.18)",
-                                            borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
-                                        }}>
-                                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>{tag}</Text>
-                                        </View>
-                                    ))}
-                                    {currentBanner.duration && (
-                                        <View style={{
-                                            backgroundColor: "rgba(255,255,255,0.18)",
-                                            borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
-                                            flexDirection: "row", alignItems: "center", gap: 3,
-                                        }}>
-                                            <Ionicons name="time-outline" size={11} color="#fff" />
-                                            <Text style={{ color: "#fff", fontSize: 11 }}>{currentBanner.duration}m</Text>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <Text style={{
-                                    color: "#fff", fontSize: 26, fontWeight: "800",
-                                    marginBottom: 14, lineHeight: 32, letterSpacing: 0.3,
-                                }} numberOfLines={2}>
-                                    {currentBanner.title}
-                                </Text>
-
-                                {/* CTA Buttons */}
-                                <View style={{ flexDirection: "row", gap: 10 }}>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            if (hasLicense(currentBanner._id)) {
-                                                router.push(`/player/${currentBanner._id}` as any);
-                                            } else {
-                                                router.push(`/movie/${currentBanner._id}` as any);
-                                            }
-                                        }}
-                                        style={{
-                                            flex: 1, backgroundColor: colors.accent,
-                                            borderRadius: 8, paddingVertical: 13,
-                                            flexDirection: "row", alignItems: "center",
-                                            justifyContent: "center", gap: 8,
-                                        }}
-                                    >
-                                        <Ionicons name="play" size={18} color="#fff" />
-                                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-                                            {hasLicense(currentBanner._id) ? "Watch Now" : "Get Access"}
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={() => router.push(`/movie/${currentBanner._id}` as any)}
-                                        style={{
-                                            paddingHorizontal: 20, paddingVertical: 13,
-                                            backgroundColor: "rgba(255,255,255,0.2)",
-                                            borderRadius: 8,
-                                            flexDirection: "row", alignItems: "center", gap: 6,
-                                        }}
-                                    >
-                                        <Ionicons name="information-circle-outline" size={18} color="#fff" />
-                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>Info</Text>
-                                    </TouchableOpacity>
-                                </View>
                             </View>
                         )}
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push("/browse")}>
+                        <Ionicons name="search-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </SafeAreaView>
 
-                        {/* Dot indicators */}
-                        <View style={{
-                            position: "absolute", bottom: -18, left: 0, right: 0,
-                            flexDirection: "row", justifyContent: "center", gap: 5, zIndex: 10,
+        {/* Banner info + CTA — unchanged */}
+        {currentBanner && (
+            <View style={{
+                position: "absolute", bottom: 0, left: 0, right: 0,
+                paddingHorizontal: 20, paddingBottom: 20, zIndex: 10,
+            }}>
+                <View style={{ flexDirection: "row", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                    {(currentBanner.categories && currentBanner.categories.length > 0
+                        ? currentBanner.categories.map((c: any) => c.name || c)
+                        : [currentBanner.genre]
+                    ).filter(Boolean).map((tag: string, i: number) => (
+                        <View key={i} style={{
+                            backgroundColor: "rgba(255,255,255,0.18)",
+                            borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
                         }}>
-                            {featuredMovies.map((_, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    onPress={() => {
-                                        setBannerIndex(i);
-                                        bannerScrollRef.current?.scrollTo({ x: i * width, animated: true });
-                                    }}
-                                >
-                                    <View style={{
-                                        height: 3, borderRadius: 2,
-                                        width: i === bannerIndex ? 24 : 6,
-                                        backgroundColor: i === bannerIndex ? colors.accent : "rgba(255,255,255,0.35)",
-                                    }} />
-                                </TouchableOpacity>
-                            ))}
+                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>{tag}</Text>
                         </View>
-                    </View>
-                )}
+                    ))}
+                    {currentBanner.duration && (
+                        <View style={{
+                            backgroundColor: "rgba(255,255,255,0.18)",
+                            borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
+                            flexDirection: "row", alignItems: "center", gap: 3,
+                        }}>
+                            <Ionicons name="time-outline" size={11} color="#fff" />
+                            <Text style={{ color: "#fff", fontSize: 11 }}>{currentBanner.duration}m</Text>
+                        </View>
+                    )}
+                </View>
+
+                <Text style={{
+                    color: "#fff", fontSize: 26, fontWeight: "800",
+                    marginBottom: 14, lineHeight: 32, letterSpacing: 0.3,
+                    textShadowColor: "rgba(0,0,0,0.6)",
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 6,
+                }} numberOfLines={2}>
+                    {currentBanner.title}
+                </Text>
+
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (hasLicense(currentBanner._id)) {
+                                router.push(`/player/${currentBanner._id}` as any);
+                            } else {
+                                router.push(`/movie/${currentBanner._id}` as any);
+                            }
+                        }}
+                        style={{
+                            flex: 1, backgroundColor: colors.accent,
+                            borderRadius: 8, paddingVertical: 13,
+                            flexDirection: "row", alignItems: "center",
+                            justifyContent: "center", gap: 8,
+                        }}
+                    >
+                        <Ionicons name="play" size={18} color="#fff" />
+                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+                            {hasLicense(currentBanner._id) ? "Watch Now" : "Get Access"}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={() => router.push(`/movie/${currentBanner._id}` as any)}
+                        style={{
+                            paddingHorizontal: 20, paddingVertical: 13,
+                            backgroundColor: "rgba(255,255,255,0.2)",
+                            borderRadius: 8,
+                            flexDirection: "row", alignItems: "center", gap: 6,
+                        }}
+                    >
+                        <Ionicons name="information-circle-outline" size={18} color="#fff" />
+                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>Info</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        )}
+
+        {/* Dot indicators */}
+        <View style={{
+            position: "absolute", bottom: -18, left: 0, right: 0,
+            flexDirection: "row", justifyContent: "center", gap: 5, zIndex: 10,
+        }}>
+            {featuredMovies.map((_, i) => (
+                <TouchableOpacity
+                    key={i}
+                    onPress={() => {
+                        setBannerIndex(i);
+                        bannerScrollRef.current?.scrollTo({ x: i * width, animated: true });
+                    }}
+                >
+                    <View style={{
+                        height: 3, borderRadius: 2,
+                        width: i === bannerIndex ? 24 : 6,
+                        backgroundColor: i === bannerIndex ? colors.accent : "rgba(255,255,255,0.35)",
+                    }} />
+                </TouchableOpacity>
+            ))}
+        </View>
+    </View>
+)}
 
                 {/* ── CONTENT SECTIONS ── */}
                 <View style={{ marginTop: featuredMovies.length > 0 ? 30 : 16 }}>

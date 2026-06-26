@@ -6,6 +6,7 @@ import { COLORS, CATEGORIES } from "@/constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { dummyProducts } from "@/assets/assets";
+import SplashLoader from "@/components/SplashLoader";
 
 export default function EditProduct() {
     const { id } = useLocalSearchParams();
@@ -139,12 +140,8 @@ export default function EditProduct() {
     };
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-surface">
-                <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
-        );
-    }
+    return <SplashLoader message="Loading movies..." />;
+}
 
     return (
         <ScrollView className="flex-1 bg-surface p-4">
