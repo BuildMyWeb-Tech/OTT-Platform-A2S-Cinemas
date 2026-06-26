@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, CallbackError } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface ICategory extends Document {
     name: string;
@@ -23,6 +23,7 @@ const categorySchema = new Schema<ICategory>(
             unique: true,
             lowercase: true,
             trim: true,
+            // No index: true here — unique: true already creates the index
         },
         description: {
             type: String,
@@ -46,8 +47,10 @@ categorySchema.pre("save", async function (this: mongoose.HydratedDocument<ICate
     }
 });
 
-categorySchema.index({ slug: 1 });
+// isActive index kept — useful for filtering active categories
+// slug index REMOVED — covered by unique: true above
 categorySchema.index({ isActive: 1 });
+categorySchema.index({ isActive: 1, name: 1 }); // compound for filtered + sorted queries
 
 const Category = mongoose.model<ICategory>("Category", categorySchema);
 export default Category;
