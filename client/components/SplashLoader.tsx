@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Dimensions, Easing, StatusBar, Text, View } from "react-native";
+import { Animated, Dimensions, Easing, StatusBar, Text, View, Image } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
 
 const { width, height } = Dimensions.get("window");
@@ -101,20 +101,26 @@ export default function SplashLoader({ message = "Loading..." }: { message?: str
                     }} />
 
                     {/* Logo circle */}
-                    <View style={{
-                        width: 74, height: 74,
-                        borderRadius: 37,
-                        backgroundColor: colors.accent,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        shadowColor: colors.accent,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.5,
-                        shadowRadius: 12,
-                        elevation: 10,
-                    }}>
-                        <Text style={{ fontSize: 32 }}>🎬</Text>
-                    </View>
+                    {/* Logo circle — use actual app icon */}
+<View style={{
+    width: 74, height: 74,
+    borderRadius: 37,
+    overflow: "hidden",
+    backgroundColor: colors.accent,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
+}}>
+    <Image
+        source={require("../assets/images/icon.png")}
+        style={{ width: 74, height: 74, borderRadius: 37 }}
+        resizeMode="cover"
+    />
+</View>
                 </View>
 
                 {/* Brand name */}

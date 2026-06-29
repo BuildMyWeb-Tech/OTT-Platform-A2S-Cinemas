@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     ActivityIndicator, FlatList, StatusBar,
     Text, TouchableOpacity, View,
@@ -10,42 +10,31 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Swipeable } from "react-native-gesture-handler";
 import api from "@/constants/api";
 import { useTheme } from "@/context/ThemeContext";
+import { useNotifications } from "@/context/NotificationContext";
+import SplashLoader from "@/components/SplashLoader";
 
-const READ_KEY = "ott_read_notification_ids";
 const DELETED_KEY = "ott_deleted_notification_ids";
 
 type FilterTab = "all" | "unread";
 
-interface Notification {
-    _id: string;
-    title: string;
-    message: string;
-    movieId?: string | { _id: string };
-    createdAt: string;
-}
-
 export default function NotificationsScreen() {
     const router = useRouter();
     const { colors, isDark } = useTheme();
+    // Fix 10 — shared context so marking read here reduces badge on Home immediately
+    const { notifications, setNotifications, readIds, markAsRead, markAllAsRead, unreadCount } = useNotifications();
 
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [readIds, setReadIds] = useState<string[]>([]);
     const [deletedIds, setDeletedIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<FilterTab>("all");
 
     useEffect(() => {
-        loadPersistedState();
+        loadDeleted();
         fetchNotifications();
     }, []);
 
-    const loadPersistedState = async () => {
-        const [reads, deletes] = await Promise.all([
-            AsyncStorage.getItem(READ_KEY),
-            AsyncStorage.getItem(DELETED_KEY),
-        ]);
-        if (reads) setReadIds(JSON.parse(reads));
-        if (deletes) setDeletedIds(JSON.parse(deletes));
+    const loadDeleted = async () => {
+        const val = await AsyncStorage.getItem(DELETED_KEY);
+        if (val) setDeletedIds(JSON.parse(val));
     };
 
     const fetchNotifications = async () => {
@@ -57,20 +46,6 @@ export default function NotificationsScreen() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const markAsRead = async (id: string) => {
-        if (readIds.includes(id)) return;
-        const updated = [...readIds, id];
-        setReadIds(updated);
-        await AsyncStorage.setItem(READ_KEY, JSON.stringify(updated));
-    };
-
-    const markAllRead = async () => {
-        const allIds = notifications.map((n) => n._id);
-        const updated = Array.from(new Set([...readIds, ...allIds]));
-        setReadIds(updated);
-        await AsyncStorage.setItem(READ_KEY, JSON.stringify(updated));
     };
 
     const deleteNotification = async (id: string) => {
@@ -86,8 +61,8 @@ export default function NotificationsScreen() {
         await AsyncStorage.setItem(DELETED_KEY, JSON.stringify(updated));
     };
 
-    const handleTap = (n: Notification) => {
-        markAsRead(n._id);
+    const handleTap = (n: any) => {
+        markAsRead(n._id); // updates shared context — Home badge reduces immediately
         if (n.movieId) {
             const mid = typeof n.movieId === "string" ? n.movieId : n.movieId._id;
             router.push(`/movie/${mid}` as any);
@@ -111,8 +86,10 @@ export default function NotificationsScreen() {
         .filter((n) => !deletedIds.includes(n._id))
         .filter((n) => filter === "unread" ? !readIds.includes(n._id) : true);
 
-    const unreadCount = notifications
+    const visibleUnread = notifications
         .filter((n) => !deletedIds.includes(n._id) && !readIds.includes(n._id)).length;
+
+    if (loading) return <SplashLoader message="Loading notifications..." />;
 
     const renderRightActions = (id: string) => (
         <TouchableOpacity
@@ -133,7 +110,7 @@ export default function NotificationsScreen() {
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
             <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
 
-                {/* ── HEADER ── */}
+                {/* Header */}
                 <View style={{
                     flexDirection: "row", alignItems: "center",
                     paddingHorizontal: 20, paddingVertical: 14,
@@ -144,25 +121,25 @@ export default function NotificationsScreen() {
                         style={{
                             width: 38, height: 38, borderRadius: 19,
                             backgroundColor: colors.surfaceVariant,
-                            justifyContent: "center", alignItems: "center",
-                            marginRight: 14,
+                            justifyContent: "center", alignItems: "center", marginRight: 14,
                         }}
                     >
                         <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textPrimary }}>
-                            Notifications
-                        </Text>
-                        {unreadCount > 0 && (
+                        <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textPrimary }}>Notifications</Text>
+                        {visibleUnread > 0 && (
                             <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>
-                                {unreadCount} unread
+                                {visibleUnread} unread
                             </Text>
                         )}
                     </View>
                     {visible.length > 0 && (
                         <TouchableOpacity
-                            onPress={unreadCount > 0 ? markAllRead : deleteAll}
+                            onPress={() => visibleUnread > 0
+                                ? markAllAsRead(notifications.map(n => n._id))
+                                : deleteAll()
+                            }
                             style={{
                                 paddingHorizontal: 12, paddingVertical: 7,
                                 backgroundColor: colors.surfaceVariant,
@@ -170,48 +147,37 @@ export default function NotificationsScreen() {
                             }}
                         >
                             <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: "600" }}>
-                                {unreadCount > 0 ? "Mark all read" : "Clear all"}
+                                {visibleUnread > 0 ? "Mark all read" : "Clear all"}
                             </Text>
                         </TouchableOpacity>
                     )}
                 </View>
 
-                {/* ── FILTER TABS ── */}
-                <View style={{
-                    flexDirection: "row", paddingHorizontal: 20,
-                    paddingVertical: 12, gap: 8,
-                }}>
+                {/* Filter tabs */}
+                <View style={{ flexDirection: "row", paddingHorizontal: 20, paddingVertical: 12, gap: 8 }}>
                     {(["all", "unread"] as FilterTab[]).map((f) => {
                         const isSelected = filter === f;
                         return (
                             <TouchableOpacity
-                                key={f}
-                                onPress={() => setFilter(f)}
+                                key={f} onPress={() => setFilter(f)}
                                 style={{
-                                    paddingHorizontal: 18, paddingVertical: 8,
-                                    borderRadius: 20,
+                                    paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
                                     backgroundColor: isSelected ? colors.accent : colors.surfaceVariant,
-                                    borderWidth: 0.5,
-                                    borderColor: isSelected ? colors.accent : colors.border,
+                                    borderWidth: 0.5, borderColor: isSelected ? colors.accent : colors.border,
                                     flexDirection: "row", alignItems: "center", gap: 5,
                                 }}
                             >
-                                <Text style={{
-                                    fontSize: 13, fontWeight: "600",
-                                    color: isSelected ? "#fff" : colors.textSecondary,
-                                    textTransform: "capitalize",
-                                }}>
+                                <Text style={{ fontSize: 13, fontWeight: "600", color: isSelected ? "#fff" : colors.textSecondary, textTransform: "capitalize" }}>
                                     {f}
                                 </Text>
-                                {f === "unread" && unreadCount > 0 && (
+                                {f === "unread" && visibleUnread > 0 && (
                                     <View style={{
                                         backgroundColor: isSelected ? "rgba(255,255,255,0.3)" : colors.accent,
                                         borderRadius: 8, minWidth: 18, height: 18,
-                                        justifyContent: "center", alignItems: "center",
-                                        paddingHorizontal: 4,
+                                        justifyContent: "center", alignItems: "center", paddingHorizontal: 4,
                                     }}>
                                         <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
-                                            {unreadCount}
+                                            {visibleUnread > 9 ? "9+" : String(visibleUnread)}
                                         </Text>
                                     </View>
                                 )}
@@ -220,12 +186,8 @@ export default function NotificationsScreen() {
                     })}
                 </View>
 
-                {/* ── LIST ── */}
-                {loading ? (
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                        <ActivityIndicator size="large" color={colors.accent} />
-                    </View>
-                ) : visible.length === 0 ? (
+                {/* List */}
+                {visible.length === 0 ? (
                     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }}>
                         <View style={{
                             width: 80, height: 80, borderRadius: 40,
@@ -238,15 +200,11 @@ export default function NotificationsScreen() {
                             {filter === "unread" ? "All caught up!" : "No notifications"}
                         </Text>
                         <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: "center", lineHeight: 20 }}>
-                            {filter === "unread"
-                                ? "You have no unread notifications."
-                                : "New movie alerts will appear here."}
+                            {filter === "unread" ? "You have no unread notifications." : "New movie alerts will appear here."}
                         </Text>
                         {filter === "unread" && (
                             <TouchableOpacity onPress={() => setFilter("all")} style={{ marginTop: 16 }}>
-                                <Text style={{ color: colors.accent, fontSize: 14, fontWeight: "600" }}>
-                                    View all notifications
-                                </Text>
+                                <Text style={{ color: colors.accent, fontSize: 14, fontWeight: "600" }}>View all notifications</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -275,17 +233,13 @@ export default function NotificationsScreen() {
                                             gap: 12,
                                         }}
                                     >
-                                        {/* Icon */}
                                         <View style={{
                                             width: 46, height: 46, borderRadius: 23,
                                             backgroundColor: colors.accent + "20",
-                                            justifyContent: "center", alignItems: "center",
-                                            flexShrink: 0,
+                                            justifyContent: "center", alignItems: "center", flexShrink: 0,
                                         }}>
                                             <Ionicons name="film" size={22} color={colors.accent} />
                                         </View>
-
-                                        {/* Content */}
                                         <View style={{ flex: 1 }}>
                                             <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                                                 <Text style={{
@@ -303,16 +257,11 @@ export default function NotificationsScreen() {
                                                     }} />
                                                 )}
                                             </View>
-                                            <Text style={{
-                                                fontSize: 13, color: colors.textSecondary,
-                                                marginTop: 4, lineHeight: 18,
-                                            }}>
+                                            <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 18 }}>
                                                 {item.message}
                                             </Text>
                                             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-                                                <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                                                    {formatTime(item.createdAt)}
-                                                </Text>
+                                                <Text style={{ fontSize: 11, color: colors.textMuted }}>{formatTime(item.createdAt)}</Text>
                                                 {item.movieId && (
                                                     <View style={{
                                                         flexDirection: "row", alignItems: "center", gap: 3,
@@ -320,9 +269,7 @@ export default function NotificationsScreen() {
                                                         borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
                                                     }}>
                                                         <Ionicons name="play-outline" size={11} color={colors.accent} />
-                                                        <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "600" }}>
-                                                            View Movie
-                                                        </Text>
+                                                        <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "600" }}>View Movie</Text>
                                                     </View>
                                                 )}
                                             </View>

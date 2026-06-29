@@ -40,42 +40,44 @@ export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: 
                         style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: CARD_H * 0.5 }}
                     />
 
-                    {/* Price / owned badge */}
-                    {isPurchased ? (
-                        <View style={{
-                            position: "absolute", top: 8, right: 8,
-                            backgroundColor: "#1D9E75",
-                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-                        }}>
-                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
-                                {daysLeft}d
-                            </Text>
-                        </View>
-                    ) : (
-                        <View style={{
-                            position: "absolute", top: 8, left: 8,
-                            backgroundColor: "rgba(0,0,0,0.75)",
-                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-                        }}>
-                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
-                                ₹{movie.price}
-                            </Text>
-                        </View>
-                    )}
+                  {/* Price / owned badge — top LEFT */}
+{isPurchased ? null : (
+    <View style={{
+        position: "absolute", top: 8, left: 8,
+        backgroundColor: "rgba(0,0,0,0.75)",
+        borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+    }}>
+        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
+            ₹{movie.price}
+        </Text>
+    </View>
+)}
 
-                    {/* Featured badge */}
-                    {movie.isFeatured && (
-                        <View style={{
-                            position: "absolute", top: 8, right: isPurchased ? 54 : 8,
-                            backgroundColor: "#E50914",
-                            borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3,
-                        }}>
-                            <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>
-                                NEW
-                            </Text>
-                        </View>
-                    )}
+{/* Owned badge — top RIGHT */}
+{isPurchased && (
+    <View style={{
+        position: "absolute", top: 8, right: 8,
+        backgroundColor: "#1D9E75",
+        borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+    }}>
+        <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+            {daysLeft}d left
+        </Text>
+    </View>
+)}
 
+{/* Featured/NEW badge — BOTTOM LEFT, never overlaps top badges */}
+{movie.isFeatured && (
+    <View style={{
+        position: "absolute", bottom: isPurchased ? 42 : 42, left: 8,
+        backgroundColor: "#E50914",
+        borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3,
+    }}>
+        <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>
+            NEW
+        </Text>
+    </View>
+)}
                     {/* Bottom info overlay */}
                     <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 10 }}>
                         <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }} numberOfLines={1}>

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import User from "../models/User.js";
-
+import bcrypt from "bcryptjs";
 const JWT_SECRET: Secret = process.env.JWT_SECRET || "secret";
 
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || "30d") as SignOptions["expiresIn"];
@@ -149,6 +149,34 @@ export const updateProfile = async (req: Request, res: Response) => {
         ).select("-password");
 
         res.json({ success: true, data: user });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const changePassword = async (req: Request, res: Response) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: "Both old and new password required" });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+        }
+
+        const user = await User.findById(req.user._id).select("+password");
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: "Current password is incorrect" });
+        }
+
+        user.password = await bcrypt.hash(newPassword, 12);
+        await user.save();
+
+        res.json({ success: true, message: "Password updated successfully" });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }

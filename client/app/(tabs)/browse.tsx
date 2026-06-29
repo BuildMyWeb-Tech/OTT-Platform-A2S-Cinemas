@@ -197,56 +197,64 @@ export default function Browse() {
                         )}
                     </View>
 
-                    {/* Suggestions dropdown */}
-                    {showSuggestions && suggestions.length > 0 && (
+                   {/* Suggestions dropdown — fixed position, max height, scrollable */}
+{showSuggestions && suggestions.length > 0 && (
+    <View style={{
+        position: "absolute", top: 80, left: 0, right: 0,
+        backgroundColor: colors.cardElevated,
+        borderRadius: 14, zIndex: 999,
+        maxHeight: 280,
+        shadowColor: "#000", shadowOpacity: 0.25,
+        shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+        elevation: 20, overflow: "hidden",
+        borderWidth: 0.5, borderColor: colors.border,
+        marginHorizontal: 16,
+    }}>
+        <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+        >
+            {suggestions.map((s, i) => (
+                <TouchableOpacity
+                    key={s._id}
+                    onPress={() => handleSuggestionSelect(s)}
+                    style={{
+                        flexDirection: "row", alignItems: "center", gap: 12,
+                        paddingHorizontal: 16, paddingVertical: 12,
+                        borderBottomWidth: i < suggestions.length - 1 ? 0.5 : 0,
+                        borderBottomColor: colors.divider,
+                    }}
+                >
+                    {s.poster ? (
+                        <Image
+                            source={{ uri: s.poster }}
+                            style={{ width: 36, height: 50, borderRadius: 6 }}
+                            resizeMode="cover"
+                        />
+                    ) : (
                         <View style={{
-                            position: "absolute", top: 94, left: 16, right: 16,
-                            backgroundColor: colors.cardElevated,
-                            borderRadius: 14, zIndex: 200,
-                            shadowColor: "#000", shadowOpacity: 0.25,
-                            shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
-                            elevation: 10, overflow: "hidden",
-                            borderWidth: 0.5, borderColor: colors.border,
+                            width: 36, height: 50, borderRadius: 6,
+                            backgroundColor: colors.surfaceVariant,
+                            justifyContent: "center", alignItems: "center",
                         }}>
-                            {suggestions.map((s, i) => (
-                                <TouchableOpacity
-                                    key={s._id}
-                                    onPress={() => handleSuggestionSelect(s)}
-                                    style={{
-                                        flexDirection: "row", alignItems: "center", gap: 12,
-                                        paddingHorizontal: 16, paddingVertical: 12,
-                                        borderBottomWidth: i < suggestions.length - 1 ? 0.5 : 0,
-                                        borderBottomColor: colors.divider,
-                                    }}
-                                >
-                                    {s.poster ? (
-                                        <Image
-                                            source={{ uri: s.poster }}
-                                            style={{ width: 36, height: 50, borderRadius: 6 }}
-                                            resizeMode="cover"
-                                        />
-                                    ) : (
-                                        <View style={{
-                                            width: 36, height: 50, borderRadius: 6,
-                                            backgroundColor: colors.surfaceVariant,
-                                            justifyContent: "center", alignItems: "center",
-                                        }}>
-                                            <Ionicons name="film-outline" size={16} color={colors.textMuted} />
-                                        </View>
-                                    )}
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.textPrimary }} numberOfLines={1}>
-                                            {s.title}
-                                        </Text>
-                                        <Text style={{ fontSize: 12, color: colors.accent, marginTop: 2, fontWeight: "600" }}>
-                                            ₹{s.price}
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="arrow-forward" size={16} color={colors.accent} />
-                                </TouchableOpacity>
-                            ))}
+                            <Ionicons name="film-outline" size={16} color={colors.textMuted} />
                         </View>
                     )}
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.textPrimary }} numberOfLines={1}>
+                            {s.title}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: colors.accent, marginTop: 2, fontWeight: "600" }}>
+                            ₹{s.price}
+                        </Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={16} color={colors.accent} />
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    </View>
+)}
                 </View>
 
                 {/* ── CATEGORY PILLS (hidden when actively searching) ── */}
