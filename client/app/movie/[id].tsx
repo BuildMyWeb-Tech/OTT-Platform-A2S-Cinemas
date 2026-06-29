@@ -84,6 +84,7 @@ export default function MovieDetail() {
     const [submittingReview, setSubmittingReview] = useState(false);
     const [reviewsPage, setReviewsPage] = useState(1);
     const [reviewsTotal, setReviewsTotal] = useState(0);
+    const [movieDeleted, setMovieDeleted] = useState(false);
 
     const owned = id ? hasLicense(id) : false;
     const daysLeft = id ? getDaysLeft(id) : 0;
@@ -97,15 +98,18 @@ export default function MovieDetail() {
     }, [id]);
 
     const fetchMovie = async () => {
-        try {
-            const { data } = await api.get(`/movies/${id}`);
-            setMovie(data.data);
-        } catch (error) {
-            console.error("Failed to fetch movie:", error);
-        } finally {
-            setLoading(false);
+    try {
+        const { data } = await api.get(`/movies/${id}`);
+        setMovie(data.data);
+    } catch (error: any) {
+        console.error("Failed to fetch movie:", error?.response?.status, error?.message);
+        if (error?.response?.status === 404) {
+            setMovieDeleted(true);
         }
-    };
+    } finally {
+        setLoading(false);
+    }
+}
 
     const fetchReviews = async (page = 1) => {
         try {
@@ -310,18 +314,60 @@ export default function MovieDetail() {
     }
 
     if (!movie) {
-        return (
-            <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
-                <Ionicons name="film-outline" size={56} color={colors.textMuted} />
-                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: "600", marginTop: 16 }}>
-                    Movie not found
-                </Text>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
-                    <Text style={{ color: colors.accent, fontSize: 15, fontWeight: "600" }}>Go back</Text>
-                </TouchableOpacity>
+    return (
+        <View style={{
+            flex: 1, backgroundColor: colors.background,
+            justifyContent: "center", alignItems: "center", padding: 32,
+        }}>
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+            <View style={{
+                width: 90, height: 90, borderRadius: 45,
+                backgroundColor: colors.surfaceVariant,
+                justifyContent: "center", alignItems: "center", marginBottom: 24,
+            }}>
+                <Ionicons
+                    name={movieDeleted ? "trash-outline" : "film-outline"}
+                    size={40}
+                    color={colors.textMuted}
+                />
             </View>
-        );
-    }
+
+            <Text style={{
+                color: colors.textPrimary, fontSize: 22, fontWeight: "700",
+                marginBottom: 12, textAlign: "center",
+            }}>
+                {movieDeleted ? "Movie Unavailable" : "Movie Not Found"}
+            </Text>
+
+            <Text style={{
+                color: colors.textSecondary, fontSize: 14,
+                textAlign: "center", lineHeight: 22, marginBottom: 32,
+            }}>
+                {movieDeleted
+                    ? "This movie has been removed by the administrator and is no longer available for viewing."
+                    : "We couldn't load this movie. It may have been moved or there was a connection issue."}
+            </Text>
+
+            <TouchableOpacity
+                onPress={() => router.replace("/(tabs)" as any)}
+                style={{
+                    backgroundColor: colors.accent, borderRadius: 12,
+                    paddingHorizontal: 28, paddingVertical: 14,
+                    flexDirection: "row", alignItems: "center", gap: 8,
+                    width: "100%", justifyContent: "center",
+                }}
+            >
+                <Ionicons name="home-outline" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Go to Home</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, padding: 8 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 14 }}>Go back</Text>
+            </TouchableOpacity>
+        </View>
+    );
+}
 
     const categoryLabel = (movie.categories && movie.categories.length > 0)
         ? movie.categories.map((c: any) => c.name).join(" • ")

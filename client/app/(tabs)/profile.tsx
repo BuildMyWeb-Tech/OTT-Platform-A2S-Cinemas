@@ -119,25 +119,40 @@ export default function Profile() {
     };
 
     const changePassword = async () => {
-        if (!oldPw || !newPw || !confirmPw) {
-            Toast.show({ type: "error", text1: "Error", text2: "Please fill in all fields" }); return;
-        }
-        if (newPw.length < 6) {
-            Toast.show({ type: "error", text1: "Error", text2: "New password must be at least 6 characters" }); return;
-        }
-        if (newPw !== confirmPw) {
-            Toast.show({ type: "error", text1: "Error", text2: "New passwords do not match" }); return;
-        }
-        setChangingPw(true);
-        try {
-            await api.put("/auth/change-password", { oldPassword: oldPw, newPassword: newPw });
-            setChangePwVisible(false);
-            setOldPw(""); setNewPw(""); setConfirmPw("");
-            Toast.show({ type: "success", text1: "Done", text2: "Password changed successfully" });
-        } catch (e: any) {
-            Toast.show({ type: "error", text1: "Error", text2: e.response?.data?.message || "Failed to change password" });
-        } finally { setChangingPw(false); }
-    };
+    if (!oldPw || !newPw || !confirmPw) {
+        Toast.show({ type: "error", text1: "Error", text2: "Please fill in all fields" }); return;
+    }
+    if (newPw.length < 6) {
+        Toast.show({ type: "error", text1: "Error", text2: "New password must be at least 6 characters" }); return;
+    }
+    if (newPw !== confirmPw) {
+        Toast.show({ type: "error", text1: "Error", text2: "New passwords do not match" }); return;
+    }
+    setChangingPw(true);
+    try {
+        // DEBUG — log what's being sent
+        console.log("[changePassword] Calling PUT /auth/change-password");
+        console.log("[changePassword] Payload:", { oldPassword: oldPw ? "***" : "EMPTY", newPassword: newPw ? "***" : "EMPTY" });
+
+        const response = await api.put("/auth/change-password", { oldPassword: oldPw, newPassword: newPw });
+
+        // DEBUG — log response
+        console.log("[changePassword] Response:", JSON.stringify(response.data));
+
+        setChangePwVisible(false);
+        setOldPw(""); setNewPw(""); setConfirmPw("");
+        Toast.show({ type: "success", text1: "Done", text2: "Password changed successfully" });
+    } catch (e: any) {
+        // DEBUG — log full error
+        console.log("[changePassword] Error status:", e?.response?.status);
+        console.log("[changePassword] Error data:", JSON.stringify(e?.response?.data));
+        console.log("[changePassword] Error message:", e?.message);
+        console.log("[changePassword] Request URL:", e?.config?.url);
+        console.log("[changePassword] Request baseURL:", e?.config?.baseURL);
+
+        Toast.show({ type: "error", text1: "Error", text2: e.response?.data?.message || "Failed to change password" });
+    } finally { setChangingPw(false); }
+};
 
     if (!isSignedIn) {
         return (
@@ -310,7 +325,8 @@ export default function Profile() {
                     <SectionCard colors={colors}>
                         <MenuRow icon="lock-closed-outline" label="Change Password" onPress={() => setChangePwVisible(true)} colors={colors} />
                         {/* Fix 9 — route to support/index not /support */}
-                        <MenuRow icon="help-circle-outline" label="Help Center" onPress={() => router.push("/support/index" as any)} colors={colors} isLast />
+                        <MenuRow icon="help-circle-outline" label="Help Center" onPress={() => router.push("/support" as any)} colors={colors} isLast />
+
                     </SectionCard>
 
                     <SectionCard colors={colors}>

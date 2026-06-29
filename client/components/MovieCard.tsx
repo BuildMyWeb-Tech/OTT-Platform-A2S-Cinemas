@@ -19,10 +19,7 @@ export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: 
 
     return (
         <Link href={`/movie/${movie._id}`} asChild>
-            <TouchableOpacity
-                style={{ width: CARD_W, marginBottom: 16 }}
-                activeOpacity={0.82}
-            >
+            <TouchableOpacity style={{ width: CARD_W, marginBottom: 16 }} activeOpacity={0.82}>
                 <View style={{
                     width: CARD_W, height: CARD_H,
                     borderRadius: 12, overflow: "hidden",
@@ -40,44 +37,45 @@ export default function MovieCard({ movie, isPurchased = false, daysLeft = 0 }: 
                         style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: CARD_H * 0.5 }}
                     />
 
-                  {/* Price / owned badge — top LEFT */}
-{isPurchased ? null : (
-    <View style={{
-        position: "absolute", top: 8, left: 8,
-        backgroundColor: "rgba(0,0,0,0.75)",
-        borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-    }}>
-        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
-            ₹{movie.price}
-        </Text>
-    </View>
-)}
+                    {/* Price badge — top LEFT — only when not owned */}
+                    {!isPurchased && (
+                        <View style={{
+                            position: "absolute", top: 8, left: 8,
+                            backgroundColor: "rgba(0,0,0,0.75)",
+                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                        }}>
+                            <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
+                                ₹{movie.price}
+                            </Text>
+                        </View>
+                    )}
 
-{/* Owned badge — top RIGHT */}
-{isPurchased && (
-    <View style={{
-        position: "absolute", top: 8, right: 8,
-        backgroundColor: "#1D9E75",
-        borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
-    }}>
-        <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
-            {daysLeft}d left
-        </Text>
-    </View>
-)}
+                    {/* Owned badge — top RIGHT */}
+                    {isPurchased && (
+                        <View style={{
+                            position: "absolute", top: 8, right: 8,
+                            backgroundColor: "#1D9E75",
+                            borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+                        }}>
+                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+                                {daysLeft}d left
+                            </Text>
+                        </View>
+                    )}
 
-{/* Featured/NEW badge — BOTTOM LEFT, never overlaps top badges */}
-{movie.isFeatured && (
-    <View style={{
-        position: "absolute", bottom: isPurchased ? 42 : 42, left: 8,
-        backgroundColor: "#E50914",
-        borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3,
-    }}>
-        <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>
-            NEW
-        </Text>
-    </View>
-)}
+                    {/* NEW badge — BOTTOM LEFT always, never overlaps top badges */}
+                    {movie.isFeatured && (
+                        <View style={{
+                            position: "absolute", bottom: 36, left: 8,
+                            backgroundColor: "#E50914",
+                            borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3,
+                        }}>
+                            <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>
+                                NEW
+                            </Text>
+                        </View>
+                    )}
+
                     {/* Bottom info overlay */}
                     <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 10 }}>
                         <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }} numberOfLines={1}>

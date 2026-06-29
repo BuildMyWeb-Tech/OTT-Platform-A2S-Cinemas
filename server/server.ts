@@ -98,7 +98,12 @@ app.get("/api/home", async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 });
-app.use("/api/auth", authRoutes);
+// Debug: log every request hitting auth routes
+app.use("/api/auth", (req, res, next) => {
+    console.log(`[AUTH ROUTE HIT] ${req.method} ${req.url} | Full: ${req.method} /api/auth${req.url}`);
+    console.log(`[AUTH HEADERS] Authorization: ${req.headers.authorization ? "Bearer ..." + req.headers.authorization.slice(-10) : "MISSING"}`);
+    next();
+}, authRoutes);
 app.use("/api/movies", movieRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/license", licenseRoutes);
