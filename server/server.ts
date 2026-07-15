@@ -1,3 +1,5 @@
+import dns from "dns";
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -20,10 +22,11 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
     origin: [
+        "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:8081",
         "https://ott-platform-a2-s-cinemas.vercel.app",
-        "https://ott-platform-a2s-cinemas.vercel.app"
+        "https://ott-platform-a2s-cinemas.vercel.app",
     ],
     credentials: true,
 }));
