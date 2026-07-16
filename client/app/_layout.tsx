@@ -8,14 +8,25 @@ import Toast from "react-native-toast-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useEffect, useState } from "react";
 import SplashLoader from "@/components/SplashLoader";
+import * as ScreenCapture from "expo-screen-capture";
 
 function AppContent() {
     const { isDark, colors } = useTheme();
     const [appReady, setAppReady] = useState(false);
 
     useEffect(() => {
+        // Prevent screenshots and screen recording globally
+        ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+
+        // Warm up backend
         fetch("https://ott-platform-a2s-cinemas.onrender.com/health").catch(() => {});
+
+        // Delay to load theme from AsyncStorage before first render
         setTimeout(() => setAppReady(true), 300);
+
+        return () => {
+            ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+        };
     }, []);
 
     if (!appReady) {

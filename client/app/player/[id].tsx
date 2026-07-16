@@ -10,6 +10,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import api from "@/constants/api";
 import { COLORS } from "@/constants";
 import SplashLoader from "@/components/SplashLoader";
+import * as ScreenCapture from "expo-screen-capture";
 
 export default function Player() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +37,15 @@ export default function Player() {
             ScreenOrientation.unlockAsync();
         };
     }, []);
+
+    // Add this useEffect inside the Player component,
+// right after the existing orientation cleanup useEffect:
+useEffect(() => {
+    ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    return () => {
+        ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    };
+}, []);
 
     const fetchStreamUrl = async () => {
         try {

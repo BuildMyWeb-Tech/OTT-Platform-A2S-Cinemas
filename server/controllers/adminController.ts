@@ -49,8 +49,38 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
-        const users = await User.find({ role: "user" }).select("-password").sort("-createdAt");
-        res.json({ success: true, data: users });
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 15;
+        const search = req.query.search as string;
+        const skip = (page - 1) * limit;
+
+        const filter: any = {};
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        const [users, total] = await Promise.all([
+            User.find(filter)
+                .select("-password")
+                .sort("-createdAt")
+                .skip(skip)
+                .limit(limit),
+            User.countDocuments(filter),
+        ]);
+
+        res.json({
+            success: true,
+            data: users,
+            pagination: {
+                page,
+                pages: Math.ceil(total / limit),
+                total,
+                limit,
+            },
+        });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
