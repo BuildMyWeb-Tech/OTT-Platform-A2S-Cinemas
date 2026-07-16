@@ -1,4 +1,4 @@
-C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
+C:\Users\ak\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
 📄 .gitignore
 📁 admin
    📄 .env.local
@@ -27,6 +27,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
             📄 page.tsx
          📁 users
             📄 page.tsx
+      📄 favicon.ico
       📄 globals.css
       📄 layout.tsx
       📁 login
@@ -45,6 +46,9 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
    📄 next.config.mjs
    📄 package.json
    📄 postcss.config.mjs
+   📁 public
+      📄 favicon-192.png
+      📄 favicon-512.png
    📄 tailwind.config.ts
    📄 tsconfig.json
 📁 client
@@ -54,7 +58,6 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 README.md
       📁 types
          📄 router.d.ts
-      📁 web
    📄 .gitignore
    📁 app
       📁 (auth)
@@ -79,14 +82,19 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
          📄 _layout.tsx
       📁 movie
          📄 [id].tsx
+      📄 notifications.tsx
       📁 payment
          📄 callback.tsx
       📁 player
          📄 [id].tsx
-      📁 product
       📁 purchases
          📄 index.tsx
          📄 [id].tsx
+      📁 support
+         📄 index.tsx
+         📄 privacy.tsx
+         📄 refund.tsx
+         📄 terms.tsx
       📄 _layout.tsx
    📄 app.json
    📁 assets
@@ -106,6 +114,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
          📄 types.ts
       📄 favicon.svg
       📁 images
+         📄 adaptive-icon.png
          📄 android-icon-background.png
          📄 android-icon-foreground.png
          📄 android-icon-monochrome.png
@@ -120,8 +129,11 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
    📄 babel.config.js
    📁 components
       📄 CategoryItem.tsx
+      📄 ConfirmModal.tsx
       📄 Header.tsx
       📄 MovieCard.tsx
+      📄 SplashLoader.tsx
+      📄 ThemeToggle.tsx
    📁 constants
       📄 api.ts
       📄 index.ts
@@ -129,6 +141,8 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
    📁 context
       📄 AuthContext.tsx
       📄 LicenseContext.tsx
+      📄 NotificationContext.tsx
+      📄 ThemeContext.tsx
    📄 declarations.d.ts
    📄 eas.json
    📄 eslint.config.js
@@ -141,7 +155,6 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
    📄 tailwind.config.js
    📄 tsconfig.json
 📄 file.txt
-📄 Production-Secrets.txt
 📁 server
    📄 .env
    📄 .gitignore
@@ -158,6 +171,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 categoryController.ts
       📄 licenseController.ts
       📄 movieController.ts
+      📄 notificationController.ts
       📄 ordersController.ts
       📄 paymentController.ts
       📄 productController.ts
@@ -168,6 +182,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 wishlistController.ts
    📁 middleware
       📄 auth.ts
+      📄 optionalAuth.ts
       📄 rateLimiter.ts
       📄 upload.ts
    📁 models
@@ -176,6 +191,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 Category.ts
       📄 License.ts
       📄 Movie.ts
+      📄 Notification.ts
       📄 Order.ts
       📄 Product.ts
       📄 Purchase.ts
@@ -191,6 +207,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 categoryRoutes.ts
       📄 licenseRoutes.ts
       📄 movieRoutes.ts
+      📄 notificationRoutes.ts
       📄 ordersRoutes.ts
       📄 paymentRoutes.ts
       📄 productsRoutes.ts
@@ -200,7 +217,7 @@ C:\Users\ajaik\Desktop\OTT-Platform-A2S-Cinemas>node show-structure.js
       📄 wishlistRoutes.ts
    📁 scripts
       📄 addIndexes.ts
-      📄 makeAdmin.ts
+      📄 createAdmin.ts
       📄 migrateCategories.ts
       📄 resetDB.ts
       📄 resetTestData.ts

@@ -41,6 +41,7 @@ export default function Browse() {
     const [totalCount, setTotalCount] = useState(0);
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const searchInputRef = useRef<TextInput>(null);
+    const loadMoreRef = useRef(false); // Add this ref at top of component
 
     useEffect(() => {
     // Fetch only categories that have at least one active movie
@@ -69,29 +70,34 @@ export default function Browse() {
 }, []);
 
     const fetchMovies = async (
-        pageNum = 1,
-        reset = false,
-        category = selectedCategory,
-        searchTerm = ""
-    ) => {
-        if (pageNum === 1) setLoading(true);
-        else setLoadingMore(true);
-        try {
-            const p = new URLSearchParams({ page: String(pageNum), limit: "12" });
-            if (category !== "all") p.set("category", category);
-            if (searchTerm.trim()) p.set("search", searchTerm.trim());
-            const { data } = await api.get(`/movies?${p}`);
-            const newMovies = data.data || [];
-            setMovies((prev) => (reset || pageNum === 1 ? newMovies : [...prev, ...newMovies]));
-            setHasMore(pageNum < (data.pagination?.pages ?? 1));
-            setTotalCount(data.pagination?.total ?? 0);
-        } catch (error) {
-            console.error("Failed to fetch movies:", error);
-        } finally {
-            setLoading(false);
-            setLoadingMore(false);
-        }
-    };
+    pageNum = 1,
+    reset = false,
+    category = selectedCategory,
+    searchTerm = ""
+) => {
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+    try {
+        const p = new URLSearchParams({ page: String(pageNum), limit: "12" });
+        if (category !== "all") p.set("category", category);
+        if (searchTerm.trim()) p.set("search", searchTerm.trim());
+        const { data } = await api.get(`/movies?${p}`);
+        const newMovies = data.data || [];
+        setMovies((prev) => (reset || pageNum === 1 ? newMovies : [...prev, ...newMovies]));
+
+        // Fix: if no pagination data or empty results, stop loading more
+        const totalPages = data.pagination?.pages ?? 0;
+        const hasMorePages = totalPages > 0 && pageNum < totalPages;
+        setHasMore(hasMorePages);
+        setTotalCount(data.pagination?.total ?? 0);
+    } catch (error) {
+        console.error("Failed to fetch movies:", error);
+        setHasMore(false); // Stop pagination on error too
+    } finally {
+        setLoading(false);
+        setLoadingMore(false);
+    }
+};
 
     const fetchSuggestions = async (q: string) => {
         if (!q.trim()) { setSuggestions([]); setShowSuggestions(false); return; }
@@ -161,11 +167,15 @@ export default function Browse() {
     };
 
     const loadMore = () => {
-        if (!hasMore || loadingMore || showSuggestions) return;
-        const next = page + 1;
-        setPage(next);
-        fetchMovies(next, false, selectedCategory, search);
-    };
+    // Triple guard: hasMore, loadingMore, and a ref flag to prevent race condition
+    if (!hasMore || loadingMore || showSuggestions || loadMoreRef.current) return;
+    loadMoreRef.current = true;
+    const next = page + 1;
+    setPage(next);
+    fetchMovies(next, false, selectedCategory, search).finally(() => {
+        loadMoreRef.current = false;
+    });
+};
 
     const selectedCategoryName = selectedCategory === "all"
         ? "All"
@@ -292,14 +302,17 @@ export default function Browse() {
             </View>
         ) : (
             <FlatList
-                data={movies}
-                keyExtractor={(item) => item._id}
-                numColumns={2}
-                columnWrapperStyle={{ justifyContent: "space-between", paddingHorizontal: 16 }}
-                contentContainerStyle={{ paddingBottom: 32, paddingTop: 4 }}
-                showsVerticalScrollIndicator={false}
-                onEndReached={loadMore}
-                onEndReachedThreshold={0.4}
+    data={movies}
+    keyExtractor={(item) => item._id}
+    numColumns={2}
+    columnWrapperStyle={{ justifyContent: "space-between", paddingHorizontal: 16 }}
+    contentContainerStyle={{ paddingBottom: 32, paddingTop: 4 }}
+    showsVerticalScrollIndicator={false}
+    onEndReached={loadMore}
+    onEndReachedThreshold={0.2}
+    maxToRenderPerBatch={6}
+    windowSize={5}
+    removeClippedSubviews={true}
                 renderItem={({ item }) => (
                     <BrowseCard
                         movie={item} colors={colors}
