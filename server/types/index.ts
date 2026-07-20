@@ -81,14 +81,19 @@ export interface IProduct extends Document {
     updatedAt: Date;
 }
 
-export interface IUser extends Document {
+export interface IUser {
+    _id: string;
     name: string;
     email: string;
+    phone?: string;           // ← ADD THIS
     password: string;
     image?: string;
     role: "user" | "admin";
     isBlocked: boolean;
-    purchasedMovies: mongoose.Types.ObjectId[];
+    purchasedMovies: string[];
+    authMethod?: "password" | "phone_otp" | "email_otp";  // ← ADD THIS
+    createdAt: Date;
+    updatedAt: Date;
     comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

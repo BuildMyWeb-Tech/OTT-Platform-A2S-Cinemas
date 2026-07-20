@@ -35,25 +35,7 @@
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 280,
-          "resizeMode": "contain",
-          "backgroundColor": "#0A0A0F",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
-        }
-      ],
-      "expo-secure-store",
-      "expo-video",
-      "expo-web-browser",
-      "expo-screen-capture"
-    ],
+   
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

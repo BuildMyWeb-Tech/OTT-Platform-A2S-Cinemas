@@ -10,6 +10,7 @@ type AuthContextType = {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
     register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+    loginWithOTP: (identifier: string, type: "phone" | "email", otp: string, purpose: "login" | "register", name?: string) => Promise<{ success: boolean; message?: string }>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 };
@@ -21,10 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Load persisted token on app start
-    useEffect(() => {
-        loadStoredAuth();
-    }, []);
+    useEffect(() => { loadStoredAuth(); }, []);
 
     const loadStoredAuth = async () => {
         try {
@@ -41,22 +39,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const saveSession = async (token: string, userData: User) => {
+        await AsyncStorage.setItem("ott_token", token);
+        await AsyncStorage.setItem("ott_user", JSON.stringify(userData));
+        setToken(token);
+        setUser(userData);
+    };
+
     const login = async (email: string, password: string) => {
         try {
             const { data } = await api.post("/auth/login", { email, password });
             if (data.success) {
-                await AsyncStorage.setItem("ott_token", data.token);
-                await AsyncStorage.setItem("ott_user", JSON.stringify(data.data));
-                setToken(data.token);
-                setUser(data.data);
+                await saveSession(data.token, data.data);
                 return { success: true };
             }
             return { success: false, message: data.message };
         } catch (error: any) {
-            return {
-                success: false,
-                message: error.response?.data?.message || "Login failed",
-            };
+            return { success: false, message: error.response?.data?.message || "Login failed" };
         }
     };
 
@@ -64,18 +63,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const { data } = await api.post("/auth/register", { name, email, password });
             if (data.success) {
-                await AsyncStorage.setItem("ott_token", data.token);
-                await AsyncStorage.setItem("ott_user", JSON.stringify(data.data));
-                setToken(data.token);
-                setUser(data.data);
+                await saveSession(data.token, data.data);
                 return { success: true };
             }
             return { success: false, message: data.message };
         } catch (error: any) {
-            return {
-                success: false,
-                message: error.response?.data?.message || "Registration failed",
-            };
+            return { success: false, message: error.response?.data?.message || "Registration failed" };
+        }
+    };
+
+    const loginWithOTP = async (
+        identifier: string,
+        type: "phone" | "email",
+        otp: string,
+        purpose: "login" | "register",
+        name?: string,
+    ) => {
+        try {
+            const { data } = await api.post("/auth/otp/verify", {
+                identifier, type, otp, purpose, name,
+            });
+            if (data.success) {
+                await saveSession(data.token, data.data);
+                return { success: true };
+            }
+            return { success: false, message: data.message };
+        } catch (error: any) {
+            return { success: false, message: error.response?.data?.message || "OTP verification failed" };
         }
     };
 
@@ -99,19 +113,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{
-            user, token,
-            isSignedIn: !!token,
-            isLoading,
-            login, register, logout, refreshUser,
-        }}>
+        <AuthContext.Provider value={{ user, token, isSignedIn: !!token, isLoading, login, register, loginWithOTP, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );
 }
 
 export function useAuth() {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error("useAuth must be used within AuthProvider");
-    return context;
+    const ctx = useContext(AuthContext);
+    if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+    return ctx;
 }
