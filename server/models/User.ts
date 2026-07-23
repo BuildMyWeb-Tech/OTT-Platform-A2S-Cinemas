@@ -11,8 +11,6 @@ export interface IUser extends Document {
     isBlocked: boolean;
     purchasedMovies: mongoose.Types.ObjectId[];
     authMethod: "password" | "phone_otp" | "email_otp";
-    createdAt: Date;
-    updatedAt: Date;
     comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -20,8 +18,8 @@ const userSchema = new Schema<IUser>(
     {
         name: { type: String, required: true, trim: true },
         email: { type: String, required: true, unique: true, trim: true, lowercase: true },
-        phone: { type: String, sparse: true, trim: true },
-        password: { type: String, required: true, minlength: 6 },
+        phone: { type: String, trim: true, sparse: true },
+        password: { type: String, required: true },
         image: { type: String },
         role: { type: String, enum: ["user", "admin"], default: "user" },
         isBlocked: { type: Boolean, default: false },
@@ -38,16 +36,12 @@ const userSchema = new Schema<IUser>(
 userSchema.pre("save", async function () {
     if (!this.isModified("password")) return;
     if (this.password.startsWith("$2b$") || this.password.startsWith("$2a$")) return;
-    // Skip hashing placeholder passwords for OTP users
-    if (this.password.startsWith("otp_")) return;
+    if (this.password.startsWith("otp_")) return; // placeholder for OTP users
     this.password = await bcrypt.hash(this.password, 12);
 });
 
-userSchema.methods.comparePassword = async function (
-    candidatePassword: string
-): Promise<boolean> {
-    return bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function (candidate: string): Promise<boolean> {
+    return bcrypt.compare(candidate, this.password);
 };
 
-const User = mongoose.model<IUser>("User", userSchema);
-export default User;
+export default mongoose.model<IUser>("User", userSchema);

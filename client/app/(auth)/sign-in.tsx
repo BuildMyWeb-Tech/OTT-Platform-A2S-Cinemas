@@ -19,15 +19,22 @@ export default function SignIn() {
     const { login } = useAuth();
     const { colors, isDark } = useTheme();
 
-    const [mode, setMode] = useState<LoginMode>("password");
+    const phoneEnabled = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED === "yes";
+    const emailOtpEnabled = process.env.EXPO_PUBLIC_EMAIL_OTP_ENABLED === "yes";
+
+    // Determine default mode
+    const getDefaultMode = (): LoginMode => "password";
+
+    const [mode, setMode] = useState<LoginMode>(getDefaultMode());
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const phoneEnabled = process.env.EXPO_PUBLIC_PHONE_OTP_ENABLED === "yes";
-    const emailOtpEnabled = process.env.EXPO_PUBLIC_EMAIL_OTP_ENABLED === "yes";
+    // Count how many tabs to show
+    const tabCount = 1 + (emailOtpEnabled ? 1 : 0) + (phoneEnabled ? 1 : 0);
+    const showTabs = tabCount > 1;
 
     const handlePasswordLogin = async () => {
         if (!email || !password) {
@@ -46,24 +53,18 @@ export default function SignIn() {
     const handleSendOTP = async () => {
         const identifier = mode === "phone_otp" ? phone.trim() : email.trim().toLowerCase();
         const type = mode === "phone_otp" ? "phone" : "email";
-
         if (!identifier) {
             return Toast.show({ type: "error", text1: "Required", text2: `Enter your ${type === "phone" ? "mobile number" : "email"}` });
         }
-
+        if (type === "phone" && phone.length < 10) {
+            return Toast.show({ type: "error", text1: "Invalid number", text2: "Enter a valid 10-digit number" });
+        }
         setLoading(true);
         try {
-            const { data } = await api.post("/auth/otp/send", {
-                identifier,
-                type,
-                purpose: "login",
-            });
+            const { data } = await api.post("/auth/otp/send", { identifier, type, purpose: "login" });
             if (data.success) {
                 Toast.show({ type: "success", text1: "OTP sent!", text2: data.message });
-                router.push({
-                    pathname: "/otp-verify" as any,
-                    params: { identifier, type, purpose: "login" },
-                });
+                router.push({ pathname: "/(auth)/otp-verify" as any, params: { identifier, type, purpose: "login" } });
             } else {
                 Toast.show({ type: "error", text1: "Failed", text2: data.message });
             }
@@ -74,12 +75,26 @@ export default function SignIn() {
         }
     };
 
+    const TabButton = ({ tabMode, label }: { tabMode: LoginMode; label: string }) => (
+        <TouchableOpacity
+            onPress={() => setMode(tabMode)}
+            style={{
+                flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center",
+                backgroundColor: mode === tabMode ? colors.background : "transparent",
+            }}
+        >
+            <Text style={{ fontSize: 13, fontWeight: "600", color: mode === tabMode ? colors.textPrimary : colors.textMuted }}>
+                {label}
+            </Text>
+        </TouchableOpacity>
+    );
+
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
             <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}>
-                    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 28 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }} keyboardVerticalOffset={24}>
+                    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 28 }} keyboardShouldPersistTaps="handled">
 
                         <TouchableOpacity
                             onPress={() => router.push("/")}
@@ -94,31 +109,14 @@ export default function SignIn() {
                             <Text style={{ fontSize: 14, color: colors.textSecondary }}>Sign in to continue watching</Text>
                         </View>
 
-                        {/* ── MODE TABS ── */}
-                        <View style={{ flexDirection: "row", backgroundColor: colors.surfaceVariant, borderRadius: 12, padding: 4, marginBottom: 24, gap: 4 }}>
-                            <TouchableOpacity
-                                onPress={() => setMode("password")}
-                                style={{ flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center", backgroundColor: mode === "password" ? colors.background : "transparent" }}
-                            >
-                                <Text style={{ fontSize: 13, fontWeight: "600", color: mode === "password" ? colors.textPrimary : colors.textMuted }}>Password</Text>
-                            </TouchableOpacity>
-                            {emailOtpEnabled && (
-                                <TouchableOpacity
-                                    onPress={() => setMode("email_otp")}
-                                    style={{ flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center", backgroundColor: mode === "email_otp" ? colors.background : "transparent" }}
-                                >
-                                    <Text style={{ fontSize: 13, fontWeight: "600", color: mode === "email_otp" ? colors.textPrimary : colors.textMuted }}>Email OTP</Text>
-                                </TouchableOpacity>
-                            )}
-                            {phoneEnabled && (
-                                <TouchableOpacity
-                                    onPress={() => setMode("phone_otp")}
-                                    style={{ flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: "center", backgroundColor: mode === "phone_otp" ? colors.background : "transparent" }}
-                                >
-                                    <Text style={{ fontSize: 13, fontWeight: "600", color: mode === "phone_otp" ? colors.textPrimary : colors.textMuted }}>Phone OTP</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                        {/* Tabs — only shown when at least one OTP method is enabled */}
+                        {showTabs && (
+                            <View style={{ flexDirection: "row", backgroundColor: colors.surfaceVariant, borderRadius: 12, padding: 4, marginBottom: 24, gap: 4 }}>
+                                <TabButton tabMode="password" label="Password" />
+                                {emailOtpEnabled && <TabButton tabMode="email_otp" label="Email OTP" />}
+                                {phoneEnabled && <TabButton tabMode="phone_otp" label="Phone OTP" />}
+                            </View>
+                        )}
 
                         {/* ── PASSWORD MODE ── */}
                         {mode === "password" && (
@@ -127,8 +125,7 @@ export default function SignIn() {
                                     <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textSecondary, marginBottom: 8 }}>Email</Text>
                                     <TextInput
                                         style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 14, padding: 16, fontSize: 15, color: colors.inputText }}
-                                        placeholder="user@example.com"
-                                        placeholderTextColor={colors.inputPlaceholder}
+                                        placeholder="user@example.com" placeholderTextColor={colors.inputPlaceholder}
                                         autoCapitalize="none" keyboardType="email-address"
                                         value={email} onChangeText={setEmail} returnKeyType="next"
                                     />

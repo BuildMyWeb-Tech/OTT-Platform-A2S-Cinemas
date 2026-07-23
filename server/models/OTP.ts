@@ -1,15 +1,14 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOTP extends Document {
-    identifier: string;   // phone number or email
+    identifier: string;
     type: "phone" | "email";
     otp: string;
     purpose: "login" | "register";
-    name?: string;        // stored for register flow
+    name?: string;
     verified: boolean;
     attempts: number;
     expiresAt: Date;
-    createdAt: Date;
 }
 
 const OTPSchema = new Schema<IOTP>({
@@ -23,10 +22,7 @@ const OTPSchema = new Schema<IOTP>({
     expiresAt: { type: Date, required: true },
 }, { timestamps: true });
 
-// Auto-delete expired OTPs from MongoDB
 OTPSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-// Prevent duplicate OTPs for same identifier
 OTPSchema.index({ identifier: 1, type: 1 });
 
-const OTP = mongoose.model<IOTP>("OTP", OTPSchema);
-export default OTP;
+export default mongoose.model<IOTP>("OTP", OTPSchema);

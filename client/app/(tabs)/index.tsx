@@ -447,7 +447,7 @@ function PosterCard({ movie, colors, onPress, owned, daysLeft }: PosterCardProps
                 )}
                 {/* Fix 3 — NEW always bottom-left, never overlaps top badges */}
                 {/* Delete this entire block */}
-{movie.isFeatured && (
+{/* {movie.isFeatured && (
     <View style={{
         position: "absolute", bottom: 7, left: 7,
         backgroundColor: "#E50914",
@@ -455,7 +455,7 @@ function PosterCard({ movie, colors, onPress, owned, daysLeft }: PosterCardProps
     }}>
         <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>NEW</Text>
     </View>
-)}
+)} */}
             </View>
             <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: "600", marginTop: 7, lineHeight: 16 }} numberOfLines={2}>
                 {movie.title}

@@ -6,22 +6,22 @@ import { loginRateLimiter, registerRateLimiter } from "../middleware/rateLimiter
 
 const router = express.Router();
 
-// Password-based auth
+// Password auth
 router.post("/login", loginRateLimiter, login);
 router.post("/register", registerRateLimiter, register);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.put("/change-password", protect, changePassword);
 
-// OTP-based auth
-router.post("/otp/send", sendOTP);       // POST /api/auth/otp/send
-router.post("/otp/verify", verifyOTP);   // POST /api/auth/otp/verify
+// OTP auth
+router.post("/otp/send", sendOTP);
+router.post("/otp/verify", verifyOTP);
 
-console.log("[authRoutes] Routes registered:");
+console.log("[authRoutes] Registered:");
 router.stack.forEach((r: any) => {
     if (r.route) {
-        const methods = Object.keys(r.route.methods).join(",").toUpperCase();
-        console.log(`  ${methods} /api/auth${r.route.path}`);
+        const m = Object.keys(r.route.methods).join(",").toUpperCase();
+        console.log(`  ${m} /api/auth${r.route.path}`);
     }
 });
 

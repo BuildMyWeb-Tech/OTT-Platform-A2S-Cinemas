@@ -32,64 +32,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setToken(storedToken);
                 setUser(JSON.parse(storedUser));
             }
-        } catch (error) {
-            console.error("Failed to load stored auth:", error);
+        } catch (e) {
+            console.error("Failed to load stored auth:", e);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const saveSession = async (token: string, userData: User) => {
-        await AsyncStorage.setItem("ott_token", token);
+    const saveSession = async (tkn: string, userData: User) => {
+        await AsyncStorage.setItem("ott_token", tkn);
         await AsyncStorage.setItem("ott_user", JSON.stringify(userData));
-        setToken(token);
+        setToken(tkn);
         setUser(userData);
     };
 
     const login = async (email: string, password: string) => {
         try {
             const { data } = await api.post("/auth/login", { email, password });
-            if (data.success) {
-                await saveSession(data.token, data.data);
-                return { success: true };
-            }
+            if (data.success) { await saveSession(data.token, data.data); return { success: true }; }
             return { success: false, message: data.message };
-        } catch (error: any) {
-            return { success: false, message: error.response?.data?.message || "Login failed" };
+        } catch (e: any) {
+            return { success: false, message: e.response?.data?.message || "Login failed" };
         }
     };
 
     const register = async (name: string, email: string, password: string) => {
         try {
             const { data } = await api.post("/auth/register", { name, email, password });
-            if (data.success) {
-                await saveSession(data.token, data.data);
-                return { success: true };
-            }
+            if (data.success) { await saveSession(data.token, data.data); return { success: true }; }
             return { success: false, message: data.message };
-        } catch (error: any) {
-            return { success: false, message: error.response?.data?.message || "Registration failed" };
+        } catch (e: any) {
+            return { success: false, message: e.response?.data?.message || "Registration failed" };
         }
     };
 
     const loginWithOTP = async (
-        identifier: string,
-        type: "phone" | "email",
-        otp: string,
-        purpose: "login" | "register",
-        name?: string,
+        identifier: string, type: "phone" | "email",
+        otp: string, purpose: "login" | "register", name?: string,
     ) => {
         try {
-            const { data } = await api.post("/auth/otp/verify", {
-                identifier, type, otp, purpose, name,
-            });
-            if (data.success) {
-                await saveSession(data.token, data.data);
-                return { success: true };
-            }
+            const { data } = await api.post("/auth/otp/verify", { identifier, type, otp, purpose, name });
+            if (data.success) { await saveSession(data.token, data.data); return { success: true }; }
             return { success: false, message: data.message };
-        } catch (error: any) {
-            return { success: false, message: error.response?.data?.message || "OTP verification failed" };
+        } catch (e: any) {
+            return { success: false, message: e.response?.data?.message || "OTP verification failed" };
         }
     };
 
@@ -107,9 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(data.data);
                 await AsyncStorage.setItem("ott_user", JSON.stringify(data.data));
             }
-        } catch (error) {
-            console.error("Failed to refresh user:", error);
-        }
+        } catch (e) { console.error("refreshUser failed:", e); }
     };
 
     return (

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import api from "@/constants/api";
 
 export default function OTPVerify() {
     const router = useRouter();
@@ -31,30 +32,28 @@ export default function OTPVerify() {
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval>;
-        if (countdown > 0) {
+        if (countdown > 0 && !canResend) {
             timer = setInterval(() => {
-                setCountdown((prev) => {
+                setCountdown(prev => {
                     if (prev <= 1) { setCanResend(true); return 0; }
                     return prev - 1;
                 });
             }, 1000);
         }
         return () => clearInterval(timer);
-    }, [countdown]);
+    }, [countdown, canResend]);
 
     const handleOtpChange = (value: string, index: number) => {
-        if (!/^\d*$/.test(value)) return; // digits only
+        if (!/^\d*$/.test(value)) return;
         const newOtp = [...otp];
-        newOtp[index] = value.slice(-1); // take last digit
+        newOtp[index] = value.slice(-1);
         setOtp(newOtp);
-        // Auto-advance
         if (value && index < 5) {
             inputRefs.current[index + 1]?.focus();
         }
-        // Auto-submit when all 6 filled
         if (value && index === 5) {
-            const fullOtp = [...newOtp.slice(0, 5), value.slice(-1)].join("");
-            if (fullOtp.length === 6) handleVerify(fullOtp);
+            const full = [...newOtp.slice(0, 5), value.slice(-1)].join("");
+            if (full.length === 6) handleVerify(full);
         }
     };
 
@@ -71,28 +70,22 @@ export default function OTPVerify() {
         }
         setLoading(true);
         const result = await loginWithOTP(
-            params.identifier,
-            params.type,
-            finalOtp,
-            params.purpose,
-            params.name,
+            params.identifier, params.type, finalOtp, params.purpose, params.name,
         );
         setLoading(false);
         if (result.success) {
             router.replace("/");
         } else {
-            Toast.show({ type: "error", text1: "Verification failed", text2: result.message });
-            // Clear OTP on error
+            Toast.show({ type: "error", text1: "Failed", text2: result.message });
             setOtp(["", "", "", "", "", ""]);
             inputRefs.current[0]?.focus();
         }
     };
 
     const handleResend = async () => {
-        if (!canResend) return;
+        if (!canResend || resendLoading) return;
         setResendLoading(true);
         try {
-            const api = (await import("@/constants/api")).default;
             const { data } = await api.post("/auth/otp/send", {
                 identifier: params.identifier,
                 type: params.type,
@@ -104,7 +97,7 @@ export default function OTPVerify() {
                 setCountdown(60);
                 setCanResend(false);
                 setOtp(["", "", "", "", "", ""]);
-                inputRefs.current[0]?.focus();
+                setTimeout(() => inputRefs.current[0]?.focus(), 100);
             } else {
                 Toast.show({ type: "error", text1: data.message });
             }
@@ -116,8 +109,8 @@ export default function OTPVerify() {
     };
 
     const maskedId = params.type === "phone"
-        ? `+91 ****${params.identifier.slice(-4)}`
-        : `${params.identifier.slice(0, 3)}***@${params.identifier.split("@")[1]}`;
+        ? `+91 ****${params.identifier?.slice(-4)}`
+        : `${params.identifier?.slice(0, 3)}***@${params.identifier?.split("@")[1]}`;
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -126,7 +119,6 @@ export default function OTPVerify() {
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
                     <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 28 }} keyboardShouldPersistTaps="handled">
 
-                        {/* Back */}
                         <TouchableOpacity
                             onPress={() => router.back()}
                             style={{ position: "absolute", top: 12, left: 0, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceVariant, justifyContent: "center", alignItems: "center" }}
@@ -134,14 +126,11 @@ export default function OTPVerify() {
                             <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
                         </TouchableOpacity>
 
-                        {/* Header */}
                         <View style={{ alignItems: "center", marginBottom: 40, marginTop: 20 }}>
                             <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.accent + "20", justifyContent: "center", alignItems: "center", marginBottom: 20 }}>
                                 <Ionicons name={params.type === "phone" ? "phone-portrait-outline" : "mail-outline"} size={32} color={colors.accent} />
                             </View>
-                            <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary, marginBottom: 10 }}>
-                                Verify OTP
-                            </Text>
+                            <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary, marginBottom: 10 }}>Verify OTP</Text>
                             <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center", lineHeight: 20 }}>
                                 Enter the 6-digit code sent to
                             </Text>
@@ -150,14 +139,14 @@ export default function OTPVerify() {
                             </Text>
                         </View>
 
-                        {/* OTP Input Boxes */}
+                        {/* OTP boxes */}
                         <View style={{ flexDirection: "row", justifyContent: "center", gap: 10, marginBottom: 32 }}>
                             {otp.map((digit, index) => (
                                 <TextInput
                                     key={index}
-                                    ref={(ref) => { inputRefs.current[index] = ref; }}
+                                    ref={ref => { inputRefs.current[index] = ref; }}
                                     value={digit}
-                                    onChangeText={(val) => handleOtpChange(val, index)}
+                                    onChangeText={val => handleOtpChange(val, index)}
                                     onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                                     style={{
                                         width: 46, height: 56, borderRadius: 12,
@@ -175,25 +164,21 @@ export default function OTPVerify() {
                             ))}
                         </View>
 
-                        {/* Verify Button */}
                         <TouchableOpacity
                             onPress={() => handleVerify()}
                             disabled={loading || otp.join("").length !== 6}
                             style={{
                                 backgroundColor: otp.join("").length === 6 ? colors.accent : colors.surfaceVariant,
-                                borderRadius: 14, paddingVertical: 17,
-                                alignItems: "center", marginBottom: 24,
+                                borderRadius: 14, paddingVertical: 17, alignItems: "center", marginBottom: 24,
                             }}
                         >
-                            {loading
-                                ? <ActivityIndicator color="#fff" />
-                                : <Text style={{ color: otp.join("").length === 6 ? "#fff" : colors.textMuted, fontWeight: "700", fontSize: 16 }}>
+                            {loading ? <ActivityIndicator color="#fff" /> : (
+                                <Text style={{ color: otp.join("").length === 6 ? "#fff" : colors.textMuted, fontWeight: "700", fontSize: 16 }}>
                                     Verify & Continue
                                 </Text>
-                            }
+                            )}
                         </TouchableOpacity>
 
-                        {/* Resend */}
                         <View style={{ alignItems: "center" }}>
                             {canResend ? (
                                 <TouchableOpacity onPress={handleResend} disabled={resendLoading}>
@@ -204,7 +189,7 @@ export default function OTPVerify() {
                                 </TouchableOpacity>
                             ) : (
                                 <Text style={{ color: colors.textMuted, fontSize: 14 }}>
-                                    Resend OTP in <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>{countdown}s</Text>
+                                    Resend in <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>{countdown}s</Text>
                                 </Text>
                             )}
                         </View>

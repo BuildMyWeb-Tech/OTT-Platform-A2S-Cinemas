@@ -477,7 +477,7 @@ function BrowseCard({ movie, colors, onPress, owned, daysLeft }: {
 
                 {/* NEW badge — BOTTOM LEFT always, never overlaps top */}
                 {/* Delete this entire block */}
-{movie.isFeatured && (
+{/* {movie.isFeatured && (
     <View style={{
         position: "absolute", bottom: 36, left: 8,
         backgroundColor: "#E50914",
@@ -485,7 +485,7 @@ function BrowseCard({ movie, colors, onPress, owned, daysLeft }: {
     }}>
         <Text style={{ color: "#fff", fontSize: 8, fontWeight: "800", letterSpacing: 0.5 }}>NEW</Text>
     </View>
-)}
+)} */}
 
                 {/* Bottom info */}
                 <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 10 }}>
