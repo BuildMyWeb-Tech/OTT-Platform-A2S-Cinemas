@@ -9,28 +9,41 @@ export const sendPhoneOTP = async (phone: string, otp: string): Promise<boolean>
         return true;
     }
     try {
-        const formattedPhone = phone.startsWith("+")
-            ? phone.slice(1)
-            : phone.startsWith("91") ? phone : `91${phone}`;
+        // MSG91 needs full number with country code, no + prefix
+        // Input is 10-digit: 9344095727 → send as 919344095727
+        const digits = phone.replace(/\D/g, "");
+        const formattedPhone = digits.length === 10 ? `91${digits}` : digits;
 
-        const body = {
+        console.log(`[OTP-PHONE] Sending to: ${formattedPhone}`);
+
+        const payload = {
             template_id: process.env.MSG91_TEMPLATE_ID!,
             mobile: formattedPhone,
             authkey: process.env.MSG91_AUTH_KEY!,
             otp,
-            sender: process.env.MSG91_SENDER_ID || "A2SCIN",
         };
+
+        console.log(`[OTP-PHONE] Payload:`, JSON.stringify({ ...payload, authkey: "***" }));
 
         const res = await fetch("https://api.msg91.com/api/v5/otp", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
+            headers: {
+                "Content-Type": "application/json",
+                "authkey": process.env.MSG91_AUTH_KEY!,
+            },
+            body: JSON.stringify(payload),
         });
+
         const data = await res.json() as any;
-        console.log("[OTP-PHONE] MSG91 response:", JSON.stringify(data));
-        return data.type === "success" || res.ok;
+        console.log(`[OTP-PHONE] MSG91 full response:`, JSON.stringify(data));
+
+        if (data.type === "success") return true;
+
+        // Log specific error for debugging
+        console.error(`[OTP-PHONE] MSG91 error:`, data.message || data);
+        return false;
     } catch (err: any) {
-        console.error("[OTP-PHONE] Send failed:", err.message);
+        console.error(`[OTP-PHONE] Fetch error:`, err.message);
         return false;
     }
 };
@@ -41,26 +54,25 @@ export const sendEmailOTP = async (email: string, otp: string, name?: string): P
         return true;
     }
     try {
-        console.log(`[OTP-EMAIL] Connecting to Brevo SMTP...`);
+        console.log(`[OTP-EMAIL] Connecting to Brevo...`);
         console.log(`[OTP-EMAIL] Login: ${process.env.BREVO_SMTP_LOGIN}`);
-        console.log(`[OTP-EMAIL] Key present: ${!!process.env.BREVO_SMTP_KEY}`);
         console.log(`[OTP-EMAIL] From: ${process.env.OTP_FROM_EMAIL}`);
 
         const transporter = nodemailer.createTransport({
             host: "smtp-relay.brevo.com",
-            port: 587,
-            secure: false,
+            port: 465,
+            secure: true,     // SSL on port 465
             auth: {
                 user: process.env.BREVO_SMTP_LOGIN!,
                 pass: process.env.BREVO_SMTP_KEY!,
             },
-            connectionTimeout: 10000,
-            greetingTimeout: 8000,
+            connectionTimeout: 15000,
+            greetingTimeout: 10000,
+            socketTimeout: 15000,
         });
 
-        // Verify connection before sending
         await transporter.verify();
-        console.log(`[OTP-EMAIL] SMTP connection verified OK`);
+        console.log(`[OTP-EMAIL] SMTP verified OK`);
 
         await transporter.sendMail({
             from: `"${process.env.OTP_FROM_NAME || "A2S Cinemas"}" <${process.env.OTP_FROM_EMAIL}>`,
@@ -77,12 +89,12 @@ export const sendEmailOTP = async (email: string, otp: string, name?: string): P
   <p style="color:#888;text-align:center;">Expires in <strong style="color:#fff;">10 minutes</strong>. Do not share.</p>
 </div>`,
         });
-        console.log(`[OTP-EMAIL] Email sent successfully to ${email}`);
+
+        console.log(`[OTP-EMAIL] Sent to ${email} successfully`);
         return true;
     } catch (err: any) {
-        console.error(`[OTP-EMAIL] FULL ERROR:`, err);
+        console.error(`[OTP-EMAIL] FULL ERROR:`, err.message);
         console.error(`[OTP-EMAIL] Code: ${err.code}`);
-        console.error(`[OTP-EMAIL] Message: ${err.message}`);
         return false;
     }
 };
