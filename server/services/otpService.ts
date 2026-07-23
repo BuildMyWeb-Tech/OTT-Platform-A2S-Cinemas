@@ -3,17 +3,15 @@ import nodemailer from "nodemailer";
 export const generateOTP = (): string =>
     Math.floor(100000 + Math.random() * 900000).toString();
 
+// ── PHONE OTP via MSG91 ───────────────────────────────────────────────────────
 export const sendPhoneOTP = async (phone: string, otp: string): Promise<boolean> => {
     if (process.env.PHONE_OTP_ENABLED !== "yes") {
         console.log(`[OTP-PHONE] DISABLED — OTP for ${phone}: ${otp}`);
         return true;
     }
     try {
-        // MSG91 needs full number with country code, no + prefix
-        // Input is 10-digit: 9344095727 → send as 919344095727
         const digits = phone.replace(/\D/g, "");
         const formattedPhone = digits.length === 10 ? `91${digits}` : digits;
-
         console.log(`[OTP-PHONE] Sending to: ${formattedPhone}`);
 
         const payload = {
@@ -22,8 +20,6 @@ export const sendPhoneOTP = async (phone: string, otp: string): Promise<boolean>
             authkey: process.env.MSG91_AUTH_KEY!,
             otp,
         };
-
-        console.log(`[OTP-PHONE] Payload:`, JSON.stringify({ ...payload, authkey: "***" }));
 
         const res = await fetch("https://api.msg91.com/api/v5/otp", {
             method: "POST",
@@ -35,66 +31,79 @@ export const sendPhoneOTP = async (phone: string, otp: string): Promise<boolean>
         });
 
         const data = await res.json() as any;
-        console.log(`[OTP-PHONE] MSG91 full response:`, JSON.stringify(data));
+        console.log(`[OTP-PHONE] MSG91 response:`, JSON.stringify(data));
 
         if (data.type === "success") return true;
-
-        // Log specific error for debugging
-        console.error(`[OTP-PHONE] MSG91 error:`, data.message || data);
+        console.error(`[OTP-PHONE] Failed:`, data.message || JSON.stringify(data));
         return false;
     } catch (err: any) {
-        console.error(`[OTP-PHONE] Fetch error:`, err.message);
+        console.error(`[OTP-PHONE] Error:`, err.message);
         return false;
     }
 };
 
+// ── EMAIL OTP via Brevo HTTP API (NOT SMTP — Render blocks SMTP ports) ────────
 export const sendEmailOTP = async (email: string, otp: string, name?: string): Promise<boolean> => {
     if (process.env.EMAIL_OTP_ENABLED !== "yes") {
         console.log(`[OTP-EMAIL] DISABLED — OTP for ${email}: ${otp}`);
         return true;
     }
     try {
-        console.log(`[OTP-EMAIL] Connecting to Brevo...`);
-        console.log(`[OTP-EMAIL] Login: ${process.env.BREVO_SMTP_LOGIN}`);
-        console.log(`[OTP-EMAIL] From: ${process.env.OTP_FROM_EMAIL}`);
+        const apiKey = process.env.BREVO_API_KEY;
+        if (!apiKey) {
+            console.error(`[OTP-EMAIL] BREVO_API_KEY not set in ENV`);
+            return false;
+        }
 
-        const transporter = nodemailer.createTransport({
-            host: "smtp-relay.brevo.com",
-            port: 465,
-            secure: true,     // SSL on port 465
-            auth: {
-                user: process.env.BREVO_SMTP_LOGIN!,
-                pass: process.env.BREVO_SMTP_KEY!,
-            },
-            connectionTimeout: 15000,
-            greetingTimeout: 10000,
-            socketTimeout: 15000,
-        });
+        const fromEmail = process.env.OTP_FROM_EMAIL || "asmovies896@gmail.com";
+        const fromName = process.env.OTP_FROM_NAME || "A2S Cinemas";
 
-        await transporter.verify();
-        console.log(`[OTP-EMAIL] SMTP verified OK`);
+        console.log(`[OTP-EMAIL] Sending via Brevo HTTP API to: ${email}`);
+        console.log(`[OTP-EMAIL] From: ${fromName} <${fromEmail}>`);
+        console.log(`[OTP-EMAIL] API Key present: ${!!apiKey}`);
 
-        await transporter.sendMail({
-            from: `"${process.env.OTP_FROM_NAME || "A2S Cinemas"}" <${process.env.OTP_FROM_EMAIL}>`,
-            to: email,
+        const body = {
+            sender: { name: fromName, email: fromEmail },
+            to: [{ email, name: name || email }],
             subject: `${otp} — Your A2S Cinemas verification code`,
-            html: `
+            htmlContent: `
 <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#0A0A0F;color:#fff;border-radius:12px;">
-  <h1 style="color:#E50914;text-align:center;">🎬 A2S Cinemas</h1>
-  <p style="color:#ccc;">Hi ${name || "there"},</p>
+  <h1 style="color:#E50914;text-align:center;margin-bottom:8px;">🎬 A2S Cinemas</h1>
+  <p style="color:#ccc;margin-top:16px;">Hi ${name || "there"},</p>
   <p style="color:#ccc;">Your verification code is:</p>
-  <div style="text-align:center;margin:28px 0;">
-    <span style="font-size:42px;font-weight:900;letter-spacing:12px;color:#fff;background:#1A1A22;padding:16px 28px;border-radius:12px;display:inline-block;">${otp}</span>
+  <div style="text-align:center;margin:32px 0;">
+    <span style="font-size:46px;font-weight:900;letter-spacing:14px;color:#fff;background:#1A1A22;padding:18px 32px;border-radius:12px;display:inline-block;">${otp}</span>
   </div>
-  <p style="color:#888;text-align:center;">Expires in <strong style="color:#fff;">10 minutes</strong>. Do not share.</p>
+  <p style="color:#888;text-align:center;font-size:14px;">
+    Expires in <strong style="color:#fff;">10 minutes</strong>.<br/>Do not share this code with anyone.
+  </p>
+  <hr style="border:none;border-top:1px solid #222;margin:24px 0;"/>
+  <p style="color:#555;font-size:12px;text-align:center;">If you did not request this, please ignore this email.</p>
 </div>`,
+        };
+
+        const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "api-key": apiKey,
+            },
+            body: JSON.stringify(body),
         });
 
-        console.log(`[OTP-EMAIL] Sent to ${email} successfully`);
-        return true;
+        const data = await res.json() as any;
+        console.log(`[OTP-EMAIL] Brevo API response status: ${res.status}`);
+        console.log(`[OTP-EMAIL] Brevo API response:`, JSON.stringify(data));
+
+        if (res.status === 201 || res.ok) {
+            console.log(`[OTP-EMAIL] Email sent successfully! MessageId: ${data.messageId}`);
+            return true;
+        }
+
+        console.error(`[OTP-EMAIL] Brevo API error:`, JSON.stringify(data));
+        return false;
     } catch (err: any) {
-        console.error(`[OTP-EMAIL] FULL ERROR:`, err.message);
-        console.error(`[OTP-EMAIL] Code: ${err.code}`);
+        console.error(`[OTP-EMAIL] Fetch error:`, err.message);
         return false;
     }
 };

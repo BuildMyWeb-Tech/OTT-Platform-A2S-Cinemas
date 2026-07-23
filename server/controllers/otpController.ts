@@ -34,8 +34,10 @@ export const sendOTP = async (req: Request, res: Response) => {
         }
 
         const normalizedId = type === "email"
-            ? identifier.toLowerCase().trim()
-            : identifier.replace(/\D/g, "").slice(-10); // strip non-digits, keep last 10
+    ? identifier.toLowerCase().trim()
+    : identifier.replace(/\D/g, "").slice(-10); // always exactly 10 digits
+
+        console.log(`[OTP-SEND] normalizedId: ${normalizedId}, length: ${normalizedId.length}`);
 
         if (type === "email" && !EMAIL_REGEX.test(normalizedId)) {
             return res.status(400).json({ success: false, message: "Enter a valid email address" });
