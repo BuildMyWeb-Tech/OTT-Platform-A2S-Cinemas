@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
+import { parseTaxInput, withPricing } from "../utils/pricing.js";
 import Movie from "../models/Movie.js";
 import Category from "../models/Category.js";
 import { deleteFromS3 } from "../config/s3.js";
@@ -159,7 +160,7 @@ export const getMovie = async (req: Request, res: Response) => {
         res.json({
             success: true,
             data: {
-                ...movie.toObject(),
+                ...withPricing(movie.toObject()),
                 reviews: formattedReviews,
             },
         });
@@ -197,6 +198,13 @@ export const createMovie = async (req: Request, res: Response) => {
             }
         }
 
+        const tax = parseTaxInput(req.body.taxPercentage);
+        if (tax.error) {
+            return res.status(400).json({ success: false, message: tax.error });
+        }
+        if (tax.value !== undefined) req.body.taxPercentage = tax.value;
+        else delete req.body.taxPercentage;
+
         const movie = await Movie.create(req.body);
 
         // Populate categories for response
@@ -211,7 +219,7 @@ export const createMovie = async (req: Request, res: Response) => {
 
         const movieResponse = movie.toObject();
         delete (movieResponse as any).videoKey;
-        res.status(201).json({ success: true, data: movieResponse });
+        res.status(201).json({ success: true, data: withPricing(movieResponse) });
     } catch (error: any) {
         if (error.name === "ValidationError") {
             return res.status(400).json({ success: false, message: error.message });
@@ -235,6 +243,13 @@ export const updateMovie = async (req: Request, res: Response) => {
             });
         }
 
+        const tax = parseTaxInput(req.body.taxPercentage);
+        if (tax.error) {
+            return res.status(400).json({ success: false, message: tax.error });
+        }
+        if (tax.value !== undefined) req.body.taxPercentage = tax.value;
+        else delete req.body.taxPercentage;
+
         const movie = await Movie.findByIdAndUpdate(id, req.body, {
             new: true,
             runValidators: true,
@@ -246,7 +261,7 @@ export const updateMovie = async (req: Request, res: Response) => {
 
         const movieResponse = movie.toObject();
         delete (movieResponse as any).videoKey;
-        res.json({ success: true, data: movieResponse });
+        res.json({ success: true, data: withPricing(movieResponse) });
     } catch (error: any) {
         if (error.name === "ValidationError") {
             return res.status(400).json({ success: false, message: error.message });

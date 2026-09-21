@@ -111,6 +111,7 @@ export interface IMovie extends Document {
     categories?: mongoose.Types.ObjectId[];       // Phase 9A — dynamic categories
     categoryId?: mongoose.Types.ObjectId;         // legacy single-category ref
     price: number;
+    taxPercentage?: number;                       // GST/tax %, defaults to 0
     poster: string;
     videoKey: string;
     trailerUrl?: string;
@@ -138,6 +139,11 @@ export interface IPurchase extends Document {
     razorpayOrderId: string;
     razorpayPaymentId?: string;
     amountPaid: number;
+    basePrice?: number;
+    taxPercentage?: number;
+    taxAmount?: number;
+    totalAmount?: number;
+    currency?: string;
     purchaseDate: Date;
     expiryDate: Date;
     status: "pending" | "active" | "expired" | "failed";

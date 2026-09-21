@@ -15,6 +15,9 @@ export interface Movie {
     description: string;
     genre: string;
     price: number;
+    taxPercentage?: number;   // GST %, provided by the server (0 when absent)
+    taxAmount?: number;
+    totalAmount?: number;
     poster: string;
     trailerUrl?: string;
     duration?: number;
@@ -41,6 +44,10 @@ export interface Purchase {
     razorpayOrderId: string;
     razorpayPaymentId?: string;
     amountPaid: number;
+    basePrice?: number;
+    taxPercentage?: number;
+    taxAmount?: number;
+    totalAmount?: number;
     purchaseDate: string;
     expiryDate: string;
     status: "pending" | "active" | "expired" | "failed";

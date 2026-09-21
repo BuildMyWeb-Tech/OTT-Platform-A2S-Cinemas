@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
-import { Link, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -14,6 +14,7 @@ import api from "@/constants/api";
 
 export default function SignIn() {
     const router = useRouter();
+    const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
     const { login } = useAuth();
     const { colors, isDark } = useTheme();
 
@@ -47,6 +48,7 @@ export default function SignIn() {
                         identifier: email.trim().toLowerCase(),
                         type: "email",
                         purpose: "login",
+                        ...(redirectTo ? { redirectTo } : {}),
                     },
                 });
             } else {
@@ -168,9 +170,9 @@ export default function SignIn() {
                         {/* Sign up link */}
                         <View style={{ flexDirection: "row", justifyContent: "center", gap: 4 }}>
                             <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                                Don't have an account?
+                                Don&apos;t have an account?
                             </Text>
-                            <Link href="/sign-up">
+                            <Link href={{ pathname: "/sign-up", params: redirectTo ? { redirectTo } : {} }}>
                                 <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 14 }}>
                                     Sign up
                                 </Text>

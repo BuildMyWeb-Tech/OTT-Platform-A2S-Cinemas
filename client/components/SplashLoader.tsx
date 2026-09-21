@@ -49,7 +49,7 @@ export default function SplashLoader({ message = "Loading..." }: Props) {
                 <View style={styles.logoCircle}>
                     {!imageError ? (
                         <Image
-                            source={require("../assets/images/icon.png")}
+                            source={require("../assets/images/a2s-logo.png")}
                             style={styles.logoImage}
                             resizeMode="contain"
                             onError={() => setImageError(true)}

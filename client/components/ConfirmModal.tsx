@@ -11,12 +11,14 @@ interface ConfirmModalProps {
     onConfirm: () => void;
     onCancel: () => void;
     danger?: boolean;
+    /** Optional emoji shown in the header circle (defaults to ⚠️ / ℹ️) */
+    icon?: string;
 }
 
 export default function ConfirmModal({
     visible, title, message,
     confirmLabel = "Confirm", cancelLabel = "Cancel",
-    onConfirm, onCancel, danger = false,
+    onConfirm, onCancel, danger = false, icon,
 }: ConfirmModalProps) {
     const { colors } = useTheme();
 
@@ -38,7 +40,7 @@ export default function ConfirmModal({
                         justifyContent: "center", alignItems: "center",
                         alignSelf: "center", marginBottom: 16,
                     }}>
-                        <Text style={{ fontSize: 24 }}>{danger ? "⚠️" : "ℹ️"}</Text>
+                        <Text style={{ fontSize: 24 }}>{icon ?? (danger ? "⚠️" : "ℹ️")}</Text>
                     </View>
 
                     <Text style={{
@@ -58,6 +60,8 @@ export default function ConfirmModal({
                     <View style={{ flexDirection: "row", gap: 10 }}>
                         <TouchableOpacity
                             onPress={onCancel}
+                            accessibilityRole="button"
+                            accessibilityLabel={cancelLabel}
                             style={{
                                 flex: 1, paddingVertical: 14, borderRadius: 12,
                                 backgroundColor: colors.surfaceVariant,
@@ -71,6 +75,8 @@ export default function ConfirmModal({
                         </TouchableOpacity>
                         <TouchableOpacity
                             onPress={onConfirm}
+                            accessibilityRole="button"
+                            accessibilityLabel={confirmLabel}
                             style={{
                                 flex: 1, paddingVertical: 14, borderRadius: 12,
                                 backgroundColor: danger ? "#E50914" : colors.accent,

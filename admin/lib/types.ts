@@ -14,6 +14,9 @@ export interface Movie {
   description: string;
   genre: string;
   price: number;
+  taxPercentage?: number;
+  taxAmount?: number;
+  totalAmount?: number;
   poster: string;
   videoKey: string;
   trailerUrl?: string;
@@ -42,6 +45,10 @@ export interface Purchase {
   razorpayOrderId: string;
   razorpayPaymentId?: string;
   amountPaid: number;
+  basePrice?: number;
+  taxPercentage?: number;
+  taxAmount?: number;
+  totalAmount?: number;
   purchaseDate: string;
   expiryDate: string;
   status: "pending" | "active" | "expired" | "failed";

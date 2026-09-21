@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator, Alert, Dimensions, Image,
+    ActivityIndicator, Dimensions, Image,
     KeyboardAvoidingView, Linking, Modal, Platform, ScrollView,
     Share, StatusBar, Text, TextInput, TouchableOpacity, View,
 } from "react-native";
@@ -15,6 +15,8 @@ import { useLicense } from "@/context/LicenseContext";
 import { useTheme } from "@/context/ThemeContext";
 import Toast from "react-native-toast-message";
 import RazorpayCheckout from "react-native-razorpay";
+import SignInRequiredModal from "@/components/SignInRequiredModal";
+import { formatINR, getPricing } from "@/constants/pricing";
 
 const { width, height } = Dimensions.get("window");
 const HERO_HEIGHT = height * 0.48;
@@ -63,6 +65,7 @@ export default function MovieDetail() {
     const [checkingPayment, setCheckingPayment] = useState(false);
     const [descExpanded, setDescExpanded] = useState(false);
     const [movieDeleted, setMovieDeleted] = useState(false);
+    const [showSignInModal, setShowSignInModal] = useState(false);
 
     const [reviews, setReviews] = useState<Review[]>([]);
     const [myReview, setMyReview] = useState<MyReview | null>(null);
@@ -158,10 +161,8 @@ export default function MovieDetail() {
 
     const handleBuy = async () => {
         if (!isSignedIn) {
-            return Alert.alert("Sign in required", "Please sign in to purchase movies", [
-                { text: "Sign In", onPress: () => router.push("/sign-in") },
-                { text: "Cancel", style: "cancel" },
-            ]);
+            setShowSignInModal(true);
+            return;
         }
         setBuyLoading(true);
         try {
@@ -175,7 +176,7 @@ export default function MovieDetail() {
                 key, amount: String(amount), currency: currency || "INR",
                 order_id: orderId, name: "A2S Cinemas",
                 description: `Access: ${movie?.title}`,
-                prefill: { email: user?.email || "", contact: "9999999999", name: user?.name || "" },
+                prefill: { email: user?.email || "", name: user?.name || "" },
                 theme: { color: "#E50914" },
                 modal: { backdropclose: false, escape: false, handleback: true, confirm_close: true },
             };
@@ -226,6 +227,12 @@ export default function MovieDetail() {
         }
     };
 
+    const handleModalSignIn = () => {
+        setShowSignInModal(false);
+        // redirectTo brings the user back to this movie after login so they can continue the purchase
+        router.push({ pathname: "/sign-in", params: { redirectTo: `/movie/${id}` } } as any);
+    };
+
     const handleShare = async () => {
         try {
             await Share.share({ message: `Watch "${movie?.title}" on A2S Cinemas!`, title: movie?.title });
@@ -274,6 +281,7 @@ export default function MovieDetail() {
         ? movie.categories.map((c: any) => c.name).join(" • ")
         : movie.genre;
     const hasMoreReviews = reviews.length < reviewsTotal;
+    const pricing = getPricing(movie);
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -352,19 +360,23 @@ export default function MovieDetail() {
                             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 17 }}>Watch Now</Text>
                         </TouchableOpacity>
                     ) : (
-                        <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 22, fontWeight: "800", color: colors.textPrimary }}>₹{movie.price}</Text>
-                                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>{movie.expiryDays} days access</Text>
+                        <View style={{ marginBottom: 12 }}>
+                            {/* Price breakdown — values come from the movie (taxPercentage is per-movie) */}
+                            <View style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 0.5, borderColor: colors.border, padding: 14, marginBottom: 12 }}>
+                                <PriceRow label="Movie Price" value={formatINR(pricing.price)} colors={colors} />
+                                <PriceRow label={`GST (${pricing.taxPercentage}%)`} value={formatINR(pricing.taxAmount)} colors={colors} />
+                                <View style={{ height: 0.5, backgroundColor: colors.divider, marginVertical: 8 }} />
+                                <PriceRow label="Total" value={formatINR(pricing.totalAmount)} colors={colors} bold />
+                                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 6 }}>{movie.expiryDays} days access</Text>
                             </View>
                             <TouchableOpacity
                                 onPress={handleBuy} disabled={buyLoading}
-                                style={{ flex: 2, backgroundColor: colors.accent, borderRadius: 12, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+                                style={{ backgroundColor: colors.accent, borderRadius: 12, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
                             >
                                 {buyLoading ? <ActivityIndicator color="#fff" /> : (
                                     <>
                                         <Ionicons name="card-outline" size={20} color="#fff" />
-                                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>Buy Access</Text>
+                                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>Buy Access · {formatINR(pricing.totalAmount)}</Text>
                                     </>
                                 )}
                             </TouchableOpacity>
@@ -442,6 +454,13 @@ export default function MovieDetail() {
                 </View>
             )}
 
+            {/* ── SIGN-IN REQUIRED MODAL ── */}
+            <SignInRequiredModal
+                visible={showSignInModal}
+                onSignIn={handleModalSignIn}
+                onCancel={() => setShowSignInModal(false)}
+            />
+
             {/* ── REVIEW MODAL ── */}
             <Modal visible={showReviewModal} transparent animationType="slide" onRequestClose={() => setShowReviewModal(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
@@ -486,6 +505,15 @@ export default function MovieDetail() {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
+        </View>
+    );
+}
+
+function PriceRow({ label, value, colors, bold }: { label: string; value: string; colors: any; bold?: boolean }) {
+    return (
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3 }}>
+            <Text style={{ fontSize: bold ? 16 : 14, fontWeight: bold ? "800" : "500", color: bold ? colors.textPrimary : colors.textSecondary }}>{label}</Text>
+            <Text style={{ fontSize: bold ? 20 : 14, fontWeight: bold ? "800" : "600", color: colors.textPrimary }}>{value}</Text>
         </View>
     );
 }

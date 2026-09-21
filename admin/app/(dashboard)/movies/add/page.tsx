@@ -1,4 +1,6 @@
 "use client";
+import TaxField from "@/components/TaxField";
+import { validateTax } from "@/lib/pricing";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -25,7 +27,7 @@ export default function AddMoviePage() {
     const [catDropdownOpen, setCatDropdownOpen] = useState(false);
 
     const [form, setForm] = useState({
-        title: "", description: "", price: "",
+        title: "", description: "", price: "", taxPercentage: "18",
         expiryDays: "30", trailerUrl: "", duration: "", isFeatured: false,
     });
     const [poster, setPoster] = useState<UploadState>(emptyUpload());
@@ -145,6 +147,7 @@ export default function AddMoviePage() {
         if (!form.title.trim()) errs.title = "Title is required";
         if (!form.description.trim()) errs.description = "Description is required";
         if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0) errs.price = "Valid price required";
+        if (validateTax(form.taxPercentage)) errs.taxPercentage = validateTax(form.taxPercentage);
         if (!poster.url) errs.poster = "Poster image is required";
         if (!video.url) errs.video = "Video file is required";
         if (!form.expiryDays || Number(form.expiryDays) <= 0) errs.expiryDays = "Valid expiry days required";
@@ -162,6 +165,7 @@ export default function AddMoviePage() {
                 title: form.title.trim(),
                 description: form.description.trim(),
                 price: Number(form.price),
+                taxPercentage: Number(form.taxPercentage || 0),
                 poster: poster.url,
                 videoKey: video.url,
                 trailerUrl: form.trailerUrl.trim() || undefined,
@@ -349,6 +353,13 @@ export default function AddMoviePage() {
                             <Input label="Access Days" type="number" min="1" placeholder="30" value={form.expiryDays}
                                 onChange={setField("expiryDays")} error={errors.expiryDays} />
                         </div>
+
+                        <TaxField
+                            price={form.price}
+                            value={form.taxPercentage}
+                            onChange={(v) => setForm((f) => ({ ...f, taxPercentage: v }))}
+                            error={errors.taxPercentage}
+                        />
 
                         <div className="space-y-1.5">
                             <label className="text-sm text-gray-400">Featured</label>

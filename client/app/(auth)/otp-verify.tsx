@@ -21,6 +21,7 @@ export default function OTPVerify() {
         type: "phone" | "email";
         purpose: "login" | "register";
         name?: string;
+        redirectTo?: string;
     }>();
 
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -74,7 +75,14 @@ export default function OTPVerify() {
         );
         setLoading(false);
         if (result.success) {
-            router.replace("/");
+            // Only allow in-app absolute paths as a redirect target
+            const target = params.redirectTo && /^\/(?!\/)/.test(params.redirectTo) ? params.redirectTo : null;
+            if (target) {
+                // Pops back to the existing screen (e.g. the movie page) instead of stacking a duplicate
+                router.dismissTo(target as any);
+            } else {
+                router.replace("/");
+            }
         } else {
             Toast.show({ type: "error", text1: "Failed", text2: result.message });
             setOtp(["", "", "", "", "", ""]);

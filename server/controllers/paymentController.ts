@@ -5,13 +5,66 @@ import Movie from "../models/Movie.js";
 import Purchase from "../models/Purchase.js";
 import License from "../models/License.js";
 import User from "../models/User.js";
+import { calculatePricing } from "../utils/pricing.js";
 
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-console.log("paymentController loaded");
+// Razorpay credentials come from the environment only (never hardcoded).
+// Client is created lazily so a missing key fails the payment routes with a clear
+// error instead of crashing the whole API on boot.
+let razorpayClient: Razorpay | null = null;
+const getRazorpay = (): Razorpay => {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret) {
+        throw new Error("Payment gateway is not configured (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET missing)");
+    }
+    if (!razorpayClient) {
+        razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+        console.log(`[razorpay] initialised in ${keyId.startsWith("rzp_live_") ? "LIVE" : "TEST"} mode`);
+    }
+    return razorpayClient;
+};
+
+const isValidSignature = (orderId: string, paymentId: string, signature: string): boolean => {
+    const expected = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+        .update(`${orderId}|${paymentId}`)
+        .digest("hex");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(String(signature));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
+/**
+ * Marks a purchase paid and grants the licence. Idempotent: a repeated verify/callback
+ * for an already-active purchase does not re-create the licence.
+ */
+const activatePurchase = async (purchase: InstanceType<typeof Purchase>, paymentId: string) => {
+    if (purchase.status === "active") {
+        const existing = await License.findOne({ user: purchase.user, movie: purchase.movie });
+        if (existing) return existing;
+    }
+
+    purchase.razorpayPaymentId = paymentId;
+    purchase.status = "active";
+    await purchase.save();
+
+    await License.findOneAndDelete({ user: purchase.user, movie: purchase.movie });
+    const license = await License.create({
+        user: purchase.user,
+        movie: purchase.movie,
+        purchase: purchase._id,
+        expiryDate: purchase.expiryDate,
+    });
+
+    await User.findByIdAndUpdate(purchase.user, {
+        $addToSet: { purchasedMovies: purchase.movie },
+    });
+    return license;
+};
+
 // POST /api/payment/create-order
+// The client only sends movieId. Price + tax are read from the database and the
+// payable amount is calculated here — any client-supplied amount is ignored.
 export const createOrder = async (req: Request, res: Response) => {
     try {
         const { movieId } = req.body;
@@ -30,14 +83,20 @@ export const createOrder = async (req: Request, res: Response) => {
             });
         }
 
-        const amountInPaise = Math.round(movie.price * 100);
+        const pricing = calculatePricing(movie.price, movie.taxPercentage);
+        if (pricing.totalPaise < 100) {
+            return res.status(400).json({ success: false, message: "This movie is not available for purchase" });
+        }
 
-        const order = await razorpay.orders.create({
-            amount: amountInPaise,
+        const order = await getRazorpay().orders.create({
+            amount: pricing.totalPaise, // paise, e.g. ₹118 => 11800
             currency: "INR",
             notes: {
                 movieId: movieId.toString(),
                 userId: req.user._id.toString(),
+                basePrice: String(pricing.price),
+                taxPercentage: String(pricing.taxPercentage),
+                taxAmount: String(pricing.taxAmount),
             },
         });
 
@@ -48,7 +107,12 @@ export const createOrder = async (req: Request, res: Response) => {
             user: req.user._id,
             movie: movieId,
             razorpayOrderId: order.id,
-            amountPaid: movie.price,
+            amountPaid: pricing.totalAmount,
+            basePrice: pricing.price,
+            taxPercentage: pricing.taxPercentage,
+            taxAmount: pricing.taxAmount,
+            totalAmount: pricing.totalAmount,
+            currency: "INR",
             expiryDate,
             status: "pending",
         });
@@ -61,11 +125,16 @@ export const createOrder = async (req: Request, res: Response) => {
                 currency: order.currency,
                 purchaseId: purchase._id,
                 movieTitle: movie.title,
-                key: process.env.RAZORPAY_KEY_ID,
+                price: pricing.price,
+                taxPercentage: pricing.taxPercentage,
+                taxAmount: pricing.taxAmount,
+                totalAmount: pricing.totalAmount,
+                key: process.env.RAZORPAY_KEY_ID, // public key id only — the secret never leaves the server
             },
         });
     } catch (error: any) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error("createOrder error:", error?.message);
+        res.status(500).json({ success: false, message: error?.message || "Could not create order" });
     }
 };
 
@@ -74,14 +143,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-        console.log("verifyPayment called:", {
-            orderId: razorpay_order_id,
-            paymentId: razorpay_payment_id,
-            hasSignature: !!razorpay_signature,
-        });
-
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-            console.log("Missing fields:", { razorpay_order_id, razorpay_payment_id, razorpay_signature });
             return res.status(400).json({
                 success: false,
                 message: `Missing payment fields: ${[
@@ -92,53 +154,21 @@ export const verifyPayment = async (req: Request, res: Response) => {
             });
         }
 
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
-        const expectedSignature = crypto
-            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-            .update(body)
-            .digest("hex");
-
-        console.log("Signature check:", {
-            expected: expectedSignature,
-            received: razorpay_signature,
-            match: expectedSignature === razorpay_signature,
-        });
-
-        if (expectedSignature !== razorpay_signature) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid payment signature",
-            });
+        if (!isValidSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
+            return res.status(400).json({ success: false, message: "Invalid payment signature" });
         }
 
         const purchase = await Purchase.findOne({ razorpayOrderId: razorpay_order_id });
-        console.log("Purchase found:", purchase ? purchase._id : "NOT FOUND");
-
         if (!purchase) {
-            return res.status(404).json({
-                success: false,
-                message: `Purchase not found for order: ${razorpay_order_id}`,
-            });
+            return res.status(404).json({ success: false, message: "Purchase not found for this order" });
         }
 
-        purchase.razorpayPaymentId = razorpay_payment_id;
-        purchase.status = "active";
-        await purchase.save();
+        // The authenticated user may only verify their own order
+        if (req.user && purchase.user.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: "This order does not belong to you" });
+        }
 
-        await License.findOneAndDelete({ user: purchase.user, movie: purchase.movie });
-
-        const license = await License.create({
-            user: purchase.user,
-            movie: purchase.movie,
-            purchase: purchase._id,
-            expiryDate: purchase.expiryDate,
-        });
-
-        await User.findByIdAndUpdate(purchase.user, {
-            $addToSet: { purchasedMovies: purchase.movie },
-        });
-
-        console.log("License created:", license._id);
+        const license = await activatePurchase(purchase, razorpay_payment_id);
 
         res.json({
             success: true,
@@ -150,8 +180,8 @@ export const verifyPayment = async (req: Request, res: Response) => {
             },
         });
     } catch (error: any) {
-        console.error("verifyPayment error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("verifyPayment error:", error?.message);
+        res.status(500).json({ success: false, message: error?.message || "Verification failed" });
     }
 };
 
@@ -171,13 +201,7 @@ export const handlePaymentCallback = async (req: Request, res: Response) => {
             return res.json({ deepLinkUrl: `${appScheme}://payment?status=cancelled` });
         }
 
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
-        const expectedSig = crypto
-            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-            .update(body)
-            .digest("hex");
-
-        if (expectedSig !== razorpay_signature) {
+        if (!isValidSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
             return res.json({
                 deepLinkUrl: `${appScheme}://payment?status=failed&reason=signature_mismatch`,
             });
@@ -190,27 +214,13 @@ export const handlePaymentCallback = async (req: Request, res: Response) => {
             });
         }
 
-        purchase.razorpayPaymentId = razorpay_payment_id;
-        purchase.status = "active";
-        await purchase.save();
-
-        await License.findOneAndDelete({ user: purchase.user, movie: purchase.movie });
-        await License.create({
-            user: purchase.user,
-            movie: purchase.movie,
-            purchase: purchase._id,
-            expiryDate: purchase.expiryDate,
-        });
-
-        await User.findByIdAndUpdate(purchase.user, {
-            $addToSet: { purchasedMovies: purchase.movie },
-        });
+        await activatePurchase(purchase, razorpay_payment_id);
 
         const deepLinkUrl = `${appScheme}://payment?status=success&movie_id=${purchase.movie}`;
         return res.json({ deepLinkUrl, success: true });
 
     } catch (error: any) {
-        console.error("Payment callback error:", error);
+        console.error("Payment callback error:", error?.message);
         return res.json({
             deepLinkUrl: `a2scinemas://payment?status=failed&reason=server_error`,
         });
@@ -219,12 +229,18 @@ export const handlePaymentCallback = async (req: Request, res: Response) => {
 
 // GET /api/payment/pay/:orderId — serves HTML payment page (no auth required)
 export const servePaymentPage = async (req: Request, res: Response) => {
-    const { orderId } = req.params;
-    const { amount, currency, key, movieTitle, movieId } = req.query;
+    // Query params are reflected into HTML/JS below, so whitelist characters first.
+    const clean = (v: unknown) => String(v ?? "").replace(/[^\w .,\-]/g, "");
+    const orderId = clean(req.params.orderId);
+    const amount = clean(req.query.amount);
+    const currency = clean(req.query.currency);
+    const key = clean(req.query.key);
+    const movieTitle = clean(req.query.movieTitle);
+    const movieId = clean(req.query.movieId);
 
     const baseUrl = process.env.BASE_URL || "https://ott-platform-a2s-cinemas.onrender.com/api";
     const callbackUrl = `${baseUrl}/payment/callback`;
-    const displayAmount = Math.round(Number(amount) / 100);
+    const displayAmount = (Number(amount) / 100).toFixed(2).replace(/\.00$/, "");
 
     const html = `<!DOCTYPE html>
 <html>
@@ -277,7 +293,6 @@ export const servePaymentPage = async (req: Request, res: Response) => {
         order_id: '${orderId}',
         name: 'A2S Cinemas',
         description: 'Access: ${movieTitle}',
-        prefill: { contact: '9999999999', email: 'test@a2s.com' },
         theme: { color: '#e50914' },
         handler: function(response) {
           showStatus('Verifying payment...');

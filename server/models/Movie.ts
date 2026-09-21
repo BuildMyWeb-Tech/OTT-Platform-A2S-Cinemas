@@ -23,6 +23,8 @@ const movieSchema = new Schema<IMovie>(
         ],
 
         price: { type: Number, required: true, min: 0 },
+        // Movie-specific GST/tax in percent (e.g. 18). Legacy movies without it default to 0.
+        taxPercentage: { type: Number, default: 0, min: 0, max: 100 },
         poster: { type: String, required: true },      // Cloudinary URL
         videoKey: { type: String, required: true, select: false },  // private S3 key — never returned by default
         trailerUrl: { type: String },

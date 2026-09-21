@@ -1,4 +1,6 @@
 "use client";
+import TaxField from "@/components/TaxField";
+import { validateTax } from "@/lib/pricing";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -35,6 +37,7 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         description: m.description,
         genre: m.genre,
         price: String(m.price),
+        taxPercentage: String(m.taxPercentage ?? 0),
         poster: m.poster,
         videoKey: m.videoKey,
         trailerUrl: m.trailerUrl || "",
@@ -81,6 +84,8 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const taxErr = validateTax(form.taxPercentage ?? "");
+    if (taxErr) { setError(`Tax: ${taxErr}`); return; }
     setSaving(true);
     setError("");
     try {
@@ -89,6 +94,7 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         description: form.description,
         genre: form.genre,
         price: Number(form.price),
+        taxPercentage: Number(form.taxPercentage || 0),
         poster: form.poster,
         videoKey: form.videoKey,
         trailerUrl: form.trailerUrl || undefined,
@@ -202,6 +208,13 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
             <div className="grid grid-cols-2 gap-4">
               <Input label="Price (₹)" type="number" value={form.price || ""} onChange={set("price")} />
               <Input label="Access Days" type="number" value={form.expiryDays || ""} onChange={set("expiryDays")} />
+            </div>
+            <div className="mt-4">
+              <TaxField
+                price={form.price || ""}
+                value={form.taxPercentage ?? "0"}
+                onChange={(v) => setForm((f: any) => ({ ...f, taxPercentage: v }))}
+              />
             </div>
           </div>
 
