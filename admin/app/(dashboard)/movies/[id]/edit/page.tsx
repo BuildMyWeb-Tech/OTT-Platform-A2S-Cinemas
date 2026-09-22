@@ -1,5 +1,6 @@
 "use client";
 import TaxField from "@/components/TaxField";
+import PeopleListField, { Person } from "@/components/PeopleListField";
 import { validateTax } from "@/lib/pricing";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,8 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [catDropdownOpen, setCatDropdownOpen] = useState(false);
   const catDropdownRef = useRef<HTMLDivElement>(null);
+  const [cast, setCast] = useState<Person[]>([]);
+  const [crew, setCrew] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +49,8 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         isFeatured: m.isFeatured,
         isActive: m.isActive,
       });
+      setCast((m.cast || []).map((c: any) => ({ name: c.name || "", role: c.role || "" })));
+      setCrew((m.crew || []).map((c: any) => ({ name: c.name || "", role: c.role || "" })));
       setCategories(catRes.data.data || []);
 
       // Pre-select existing categories — handle both populated objects and raw IDs
@@ -103,6 +108,8 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         isFeatured: form.isFeatured,
         isActive: form.isActive,
         categories: selectedCategories,
+        cast: cast.filter((c) => c.name.trim()),
+        crew: crew.filter((c) => c.name.trim() && c.role.trim()),
       });
       router.push("/movies");
     } catch (err: any) {
@@ -230,6 +237,16 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
               <Input label="Video Key (S3 path)" value={form.videoKey || ""} onChange={set("videoKey")} />
               <Input label="Trailer URL (optional)" value={form.trailerUrl || ""} onChange={set("trailerUrl")} />
               <Input label="Duration (minutes)" type="number" value={form.duration || ""} onChange={set("duration")} />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">Cast & Crew (optional)</h3>
+            <div className="space-y-5">
+              <PeopleListField label="Cast" namePlaceholder="Actor name" rolePlaceholder="Character (optional)"
+                items={cast} onChange={setCast} />
+              <PeopleListField label="Crew" namePlaceholder="Person name" rolePlaceholder="Role, e.g. Director"
+                items={crew} onChange={setCrew} />
             </div>
           </div>
 

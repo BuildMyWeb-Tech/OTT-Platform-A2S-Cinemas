@@ -14,6 +14,21 @@ const validGenres = [
 const isValidObjectId = (id: unknown): boolean =>
     typeof id === "string" && mongoose.Types.ObjectId.isValid(id);
 
+// Drops blank/malformed rows so a stray empty form row can't create junk cast/crew entries.
+const sanitizePeopleList = (
+    list: unknown,
+    { roleRequired }: { roleRequired: boolean }
+): { name: string; role?: string }[] | undefined => {
+    if (list === undefined) return undefined;
+    if (!Array.isArray(list)) return [];
+    return list
+        .map((entry: any) => ({
+            name: typeof entry?.name === "string" ? entry.name.trim() : "",
+            role: typeof entry?.role === "string" ? entry.role.trim() : "",
+        }))
+        .filter((entry) => entry.name && (!roleRequired || entry.role));
+};
+
 // ── GET /api/movies ───────────────────────────────────────────────────────────
 export const getMovies = async (req: Request, res: Response) => {
     try {
@@ -205,6 +220,11 @@ export const createMovie = async (req: Request, res: Response) => {
         if (tax.value !== undefined) req.body.taxPercentage = tax.value;
         else delete req.body.taxPercentage;
 
+        const sanitizedCast = sanitizePeopleList(req.body.cast, { roleRequired: false });
+        if (sanitizedCast !== undefined) req.body.cast = sanitizedCast;
+        const sanitizedCrew = sanitizePeopleList(req.body.crew, { roleRequired: true });
+        if (sanitizedCrew !== undefined) req.body.crew = sanitizedCrew;
+
         const movie = await Movie.create(req.body);
 
         // Populate categories for response
@@ -249,6 +269,11 @@ export const updateMovie = async (req: Request, res: Response) => {
         }
         if (tax.value !== undefined) req.body.taxPercentage = tax.value;
         else delete req.body.taxPercentage;
+
+        const sanitizedCastUpdate = sanitizePeopleList(req.body.cast, { roleRequired: false });
+        if (sanitizedCastUpdate !== undefined) req.body.cast = sanitizedCastUpdate;
+        const sanitizedCrewUpdate = sanitizePeopleList(req.body.crew, { roleRequired: true });
+        if (sanitizedCrewUpdate !== undefined) req.body.crew = sanitizedCrewUpdate;
 
         const movie = await Movie.findByIdAndUpdate(id, req.body, {
             new: true,

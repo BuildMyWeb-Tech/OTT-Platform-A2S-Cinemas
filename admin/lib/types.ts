@@ -17,6 +17,8 @@ export interface Movie {
   taxPercentage?: number;
   taxAmount?: number;
   totalAmount?: number;
+  cast?: { name: string; role?: string }[];
+  crew?: { name: string; role: string }[];
   poster: string;
   videoKey: string;
   trailerUrl?: string;

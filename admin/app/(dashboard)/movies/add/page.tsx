@@ -1,5 +1,6 @@
 "use client";
 import TaxField from "@/components/TaxField";
+import PeopleListField, { Person } from "@/components/PeopleListField";
 import { validateTax } from "@/lib/pricing";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,8 @@ export default function AddMoviePage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [catDropdownOpen, setCatDropdownOpen] = useState(false);
+    const [cast, setCast] = useState<Person[]>([]);
+    const [crew, setCrew] = useState<Person[]>([]);
 
     const [form, setForm] = useState({
         title: "", description: "", price: "", taxPercentage: "18",
@@ -173,6 +176,8 @@ export default function AddMoviePage() {
                 expiryDays: Number(form.expiryDays),
                 isFeatured: form.isFeatured,
                 categories: selectedCategories,
+                cast: cast.filter((c) => c.name.trim()),
+                crew: crew.filter((c) => c.name.trim() && c.role.trim()),
             });
             // Mark as saved BEFORE navigating away — prevents the unmount
             // cleanup effect from deleting the video that's now attached to
@@ -380,6 +385,15 @@ export default function AddMoviePage() {
                             value={form.trailerUrl} onChange={setField("trailerUrl")} />
                         <Input label="Duration (minutes, optional)" type="number" placeholder="120"
                             value={form.duration} onChange={setField("duration")} />
+                    </div>
+
+                    {/* Cast & Crew */}
+                    <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5 space-y-5">
+                        <h3 className="text-white font-medium text-sm pb-2 border-b border-[#1E1E2E]">Cast & Crew (optional)</h3>
+                        <PeopleListField label="Cast" namePlaceholder="Actor name" rolePlaceholder="Character (optional)"
+                            items={cast} onChange={setCast} />
+                        <PeopleListField label="Crew" namePlaceholder="Person name" rolePlaceholder="Role, e.g. Director"
+                            items={crew} onChange={setCrew} />
                     </div>
 
                     <div className="flex gap-3">

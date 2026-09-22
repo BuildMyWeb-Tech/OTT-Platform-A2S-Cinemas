@@ -36,6 +36,16 @@ const movieSchema = new Schema<IMovie>(
         // Legacy single category ref — kept for backward compat
         categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
 
+        // Cast & crew — optional, defaults to empty so existing movies keep working
+        cast: [{
+            name: { type: String, required: true, trim: true },
+            role: { type: String, trim: true },   // character played, e.g. "Detective Rao"
+        }],
+        crew: [{
+            name: { type: String, required: true, trim: true },
+            role: { type: String, required: true, trim: true },  // job title, e.g. "Director"
+        }],
+
         ratings: {
             average: { type: Number, default: 0, min: 0, max: 5 },
             count: { type: Number, default: 0 },

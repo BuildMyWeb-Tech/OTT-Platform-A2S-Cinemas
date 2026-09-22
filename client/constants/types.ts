@@ -18,6 +18,8 @@ export interface Movie {
     taxPercentage?: number;   // GST %, provided by the server (0 when absent)
     taxAmount?: number;
     totalAmount?: number;
+    cast?: { name: string; role?: string }[];
+    crew?: { name: string; role: string }[];
     poster: string;
     trailerUrl?: string;
     duration?: number;

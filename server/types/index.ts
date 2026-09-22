@@ -110,6 +110,8 @@ export interface IMovie extends Document {
     genre?: string;                               // legacy — kept for backward compat
     categories?: mongoose.Types.ObjectId[];       // Phase 9A — dynamic categories
     categoryId?: mongoose.Types.ObjectId;         // legacy single-category ref
+    cast?: { name: string; role?: string }[];
+    crew?: { name: string; role: string }[];
     price: number;
     taxPercentage?: number;                       // GST/tax %, defaults to 0
     poster: string;

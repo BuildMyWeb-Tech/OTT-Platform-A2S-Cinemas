@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator, Dimensions, Image,
     KeyboardAvoidingView, Linking, Modal, Platform, ScrollView,
-    Share, StatusBar, Text, TextInput, TouchableOpacity, View,
+    StatusBar, Text, TextInput, TouchableOpacity, View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -233,12 +233,6 @@ export default function MovieDetail() {
         router.push({ pathname: "/sign-in", params: { redirectTo: `/movie/${id}` } } as any);
     };
 
-    const handleShare = async () => {
-        try {
-            await Share.share({ message: `Watch "${movie?.title}" on A2S Cinemas!`, title: movie?.title });
-        } catch {}
-    };
-
     if (loading) {
         return (
             <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
@@ -384,12 +378,12 @@ export default function MovieDetail() {
                     )}
 
                     {/* ── ACTION ICONS ROW ── */}
-                    <View style={{ flexDirection: "row", justifyContent: "space-around", paddingVertical: 16, marginBottom: 20, backgroundColor: colors.surface, borderRadius: 14, borderWidth: 0.5, borderColor: colors.border }}>
-                        <ActionBtn icon="add-circle-outline" label="Watchlist" onPress={() => Toast.show({ type: "info", text1: "Coming soon" })} colors={colors} />
-                        <ActionBtn icon="share-social-outline" label="Share" onPress={handleShare} colors={colors} />
-                        <ActionBtn icon="download-outline" label="Download" onPress={() => Toast.show({ type: "info", text1: "Coming soon" })} colors={colors} />
-                        {owned && <ActionBtn icon="create-outline" label={myReview ? "Edit Review" : "Review"} onPress={() => setShowReviewModal(true)} colors={colors} />}
-                    </View>
+                    {/* Watchlist/Share/Download hidden per product decision — only Review remains, owned-only */}
+                    {owned && (
+                        <View style={{ flexDirection: "row", justifyContent: "space-around", paddingVertical: 16, marginBottom: 20, backgroundColor: colors.surface, borderRadius: 14, borderWidth: 0.5, borderColor: colors.border }}>
+                            <ActionBtn icon="create-outline" label={myReview ? "Edit Review" : "Review"} onPress={() => setShowReviewModal(true)} colors={colors} />
+                        </View>
+                    )}
 
                     {/* ── DESCRIPTION ── */}
                     <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: 10 }}>About</Text>
@@ -402,6 +396,35 @@ export default function MovieDetail() {
                                 {descExpanded ? "Show less" : "Read more"}
                             </Text>
                         </TouchableOpacity>
+                    )}
+
+                    {/* ── CAST & CREW ── */}
+                    {((movie.cast && movie.cast.length > 0) || (movie.crew && movie.crew.length > 0)) && (
+                        <View style={{ marginBottom: 24 }}>
+                            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: 10 }}>Cast & Crew</Text>
+                            {movie.cast && movie.cast.length > 0 && (
+                                <View style={{ marginBottom: movie.crew && movie.crew.length > 0 ? 14 : 0 }}>
+                                    <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Cast</Text>
+                                    {movie.cast.map((person, i) => (
+                                        <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+                                            <Text style={{ fontSize: 14, color: colors.textPrimary, flex: 1 }}>{person.name}</Text>
+                                            {!!person.role && <Text style={{ fontSize: 13, color: colors.textMuted, flex: 1, textAlign: "right" }}>{person.role}</Text>}
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                            {movie.crew && movie.crew.length > 0 && (
+                                <View>
+                                    <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Crew</Text>
+                                    {movie.crew.map((person, i) => (
+                                        <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 }}>
+                                            <Text style={{ fontSize: 14, color: colors.textPrimary, flex: 1 }}>{person.name}</Text>
+                                            <Text style={{ fontSize: 13, color: colors.textMuted, flex: 1, textAlign: "right" }}>{person.role}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
                     )}
 
                     {/* ── REVIEWS SECTION ── */}
