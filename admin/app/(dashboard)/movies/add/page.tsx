@@ -1,6 +1,7 @@
 "use client";
 import TaxField from "@/components/TaxField";
 import PeopleListField, { Person } from "@/components/PeopleListField";
+import TeaserField from "@/components/TeaserField";
 import { validateTax } from "@/lib/pricing";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -28,10 +29,14 @@ export default function AddMoviePage() {
     const [catDropdownOpen, setCatDropdownOpen] = useState(false);
     const [cast, setCast] = useState<Person[]>([]);
     const [crew, setCrew] = useState<Person[]>([]);
+    const [teaserMode, setTeaserMode] = useState<"url" | "upload">("url");
+    const [teaserKey, setTeaserKey] = useState("");
+    const [posterDims, setPosterDims] = useState<{ w: number; h: number } | null>(null);
 
     const [form, setForm] = useState({
         title: "", description: "", price: "", taxPercentage: "18",
         expiryDays: "30", trailerUrl: "", duration: "", isFeatured: false,
+        language: "", certification: "", copyrightOwner: "", releaseDate: "",
     });
     const [poster, setPoster] = useState<UploadState>(emptyUpload());
     const [video, setVideo] = useState<UploadState>(emptyUpload());
@@ -113,6 +118,9 @@ export default function AddMoviePage() {
                 xhr.send(formData);
             });
             setPoster((p) => ({ ...p, url: result, uploading: false, progress: 100 }));
+            const img = new Image();
+            img.onload = () => setPosterDims({ w: img.naturalWidth, h: img.naturalHeight });
+            img.src = result;
         } catch (err: any) { setPoster((p) => ({ ...p, uploading: false, error: err.message })); }
     };
 
@@ -171,13 +179,18 @@ export default function AddMoviePage() {
                 taxPercentage: Number(form.taxPercentage || 0),
                 poster: poster.url,
                 videoKey: video.url,
-                trailerUrl: form.trailerUrl.trim() || undefined,
+                trailerUrl: teaserMode === "url" ? (form.trailerUrl.trim() || undefined) : "",
+                teaserKey: teaserMode === "upload" ? (teaserKey || undefined) : "",
                 duration: form.duration ? Number(form.duration) : undefined,
                 expiryDays: Number(form.expiryDays),
                 isFeatured: form.isFeatured,
                 categories: selectedCategories,
                 cast: cast.filter((c) => c.name.trim()),
                 crew: crew.filter((c) => c.name.trim() && c.role.trim()),
+                language: form.language.trim() || undefined,
+                certification: form.certification.trim() || undefined,
+                copyrightOwner: form.copyrightOwner.trim() || undefined,
+                releaseDate: form.releaseDate || undefined,
             });
             // Mark as saved BEFORE navigating away — prevents the unmount
             // cleanup effect from deleting the video that's now attached to
@@ -240,6 +253,11 @@ export default function AddMoviePage() {
                                 <div className="flex-1">
                                     <p className="text-white text-sm">Poster uploaded ✓</p>
                                     <p className="text-gray-500 text-xs truncate mt-0.5">{poster.url.slice(0, 60)}...</p>
+                                    {posterDims && (
+                                        <p className={`text-xs mt-1 ${Math.abs(posterDims.w / posterDims.h - 2 / 3) < 0.05 ? "text-gray-500" : "text-amber-400"}`}>
+                                            {posterDims.w}×{posterDims.h} — app displays posters at 2:3 (e.g. 600×900); other ratios get center-cropped
+                                        </p>
+                                    )}
                                 </div>
                                 <button type="button" onClick={() => setPoster(emptyUpload())} className="p-1.5 text-gray-500 hover:text-white"><X size={16} /></button>
                             </div>
@@ -381,10 +399,30 @@ export default function AddMoviePage() {
                             </div>
                         </div>
 
-                        <Input label="Trailer URL (optional)" placeholder="https://commondatastorage.googleapis.com/..."
-                            value={form.trailerUrl} onChange={setField("trailerUrl")} />
+                        <TeaserField
+                            mode={teaserMode} onModeChange={setTeaserMode}
+                            trailerUrl={form.trailerUrl} onTrailerUrlChange={(v) => setForm((f) => ({ ...f, trailerUrl: v }))}
+                            teaserKey={teaserKey} onTeaserKeyChange={setTeaserKey}
+                            onClearTeaser={() => setTeaserKey("")}
+                        />
                         <Input label="Duration (minutes, optional)" type="number" placeholder="120"
                             value={form.duration} onChange={setField("duration")} />
+                    </div>
+
+                    {/* Film Details & Metadata, Copyright, Release scheduling */}
+                    <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5 space-y-4">
+                        <h3 className="text-white font-medium text-sm pb-2 border-b border-[#1E1E2E]">Additional Film Details (optional)</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <Input label="Language" placeholder="e.g. Telugu" value={form.language} onChange={setField("language")} />
+                            <Input label="Certification" placeholder="e.g. U/A" value={form.certification} onChange={setField("certification")} />
+                        </div>
+                        <Input label="Copyright / Ownership" placeholder="e.g. (c) 2026 XYZ Productions. All rights reserved."
+                            value={form.copyrightOwner} onChange={setField("copyrightOwner")} />
+                        <div className="space-y-1.5">
+                            <label className="text-sm text-gray-400">Scheduled Release (date & time)</label>
+                            <Input type="datetime-local" value={form.releaseDate} onChange={setField("releaseDate")} />
+                            <p className="text-gray-600 text-xs">Leave empty to publish immediately. Otherwise the movie stays hidden from customers until this moment.</p>
+                        </div>
                     </div>
 
                     {/* Cast & Crew */}

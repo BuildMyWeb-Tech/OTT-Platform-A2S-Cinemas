@@ -20,6 +20,11 @@ export interface Movie {
     totalAmount?: number;
     cast?: { name: string; role?: string }[];
     crew?: { name: string; role: string }[];
+    hasTeaser?: boolean;
+    language?: string;
+    certification?: string;
+    copyrightOwner?: string;
+    releaseDate?: string;
     poster: string;
     trailerUrl?: string;
     duration?: number;

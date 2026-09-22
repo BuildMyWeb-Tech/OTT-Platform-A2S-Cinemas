@@ -1,6 +1,7 @@
 "use client";
 import TaxField from "@/components/TaxField";
 import PeopleListField, { Person } from "@/components/PeopleListField";
+import TeaserField from "@/components/TeaserField";
 import { validateTax } from "@/lib/pricing";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -14,6 +15,14 @@ const GENRES = ["Action", "Drama", "Comedy", "Thriller", "Horror", "Romance", "S
 
 interface Category { _id: string; name: string; slug: string; isActive: boolean; }
 
+// datetime-local inputs work in the browser's local time with no timezone suffix —
+// convert a stored UTC ISO string to that local naive format for display.
+function toLocalDatetimeInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function EditMoviePage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [movie, setMovie] = useState<Movie | null>(null);
@@ -24,6 +33,10 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
   const catDropdownRef = useRef<HTMLDivElement>(null);
   const [cast, setCast] = useState<Person[]>([]);
   const [crew, setCrew] = useState<Person[]>([]);
+  const [teaserMode, setTeaserMode] = useState<"url" | "upload">("url");
+  const [teaserKey, setTeaserKey] = useState("");
+  const [hasExistingTeaser, setHasExistingTeaser] = useState(false);
+  const [posterDims, setPosterDims] = useState<{ w: number; h: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -48,9 +61,15 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         expiryDays: String(m.expiryDays),
         isFeatured: m.isFeatured,
         isActive: m.isActive,
+        language: m.language || "",
+        certification: m.certification || "",
+        copyrightOwner: m.copyrightOwner || "",
+        releaseDate: m.releaseDate ? toLocalDatetimeInput(m.releaseDate) : "",
       });
       setCast((m.cast || []).map((c: any) => ({ name: c.name || "", role: c.role || "" })));
       setCrew((m.crew || []).map((c: any) => ({ name: c.name || "", role: c.role || "" })));
+      setTeaserMode(m.trailerUrl ? "url" : "upload");
+      setHasExistingTeaser(!!m.hasTeaser);
       setCategories(catRes.data.data || []);
 
       // Pre-select existing categories — handle both populated objects and raw IDs
@@ -102,7 +121,10 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         taxPercentage: Number(form.taxPercentage || 0),
         poster: form.poster,
         videoKey: form.videoKey,
-        trailerUrl: form.trailerUrl || undefined,
+        trailerUrl: teaserMode === "url" ? (form.trailerUrl.trim() || undefined) : "",
+        teaserKey: teaserMode === "upload"
+          ? (teaserKey || (hasExistingTeaser ? undefined : ""))  // new upload > leave untouched > explicitly cleared
+          : "",                                                    // URL mode — clear any stored teaser
         duration: form.duration ? Number(form.duration) : undefined,
         expiryDays: Number(form.expiryDays),
         isFeatured: form.isFeatured,
@@ -110,6 +132,10 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         categories: selectedCategories,
         cast: cast.filter((c) => c.name.trim()),
         crew: crew.filter((c) => c.name.trim() && c.role.trim()),
+        language: form.language?.trim() || undefined,
+        certification: form.certification?.trim() || undefined,
+        copyrightOwner: form.copyrightOwner?.trim() || undefined,
+        releaseDate: form.releaseDate ? new Date(form.releaseDate).toISOString() : "",
       });
       router.push("/movies");
     } catch (err: any) {
@@ -230,13 +256,44 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
             <div className="space-y-4">
               <Input label="Poster URL" value={form.poster || ""} onChange={set("poster")} />
               {form.poster && (
-                <div className="w-20 h-28 rounded overflow-hidden bg-[#1E1E2E]">
-                  <img src={form.poster} alt="preview" className="w-full h-full object-cover" />
+                <div>
+                  <div className="w-20 h-28 rounded overflow-hidden bg-[#1E1E2E]">
+                    <img src={form.poster} alt="preview" className="w-full h-full object-cover"
+                      onLoad={(e) => setPosterDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
+                  </div>
+                  {posterDims && (
+                    <p className={`text-xs mt-1 ${Math.abs(posterDims.w / posterDims.h - 2 / 3) < 0.05 ? "text-gray-500" : "text-amber-400"}`}>
+                      {posterDims.w}×{posterDims.h} — app displays posters at 2:3 (e.g. 600×900); other ratios get center-cropped
+                    </p>
+                  )}
                 </div>
               )}
               <Input label="Video Key (S3 path)" value={form.videoKey || ""} onChange={set("videoKey")} />
-              <Input label="Trailer URL (optional)" value={form.trailerUrl || ""} onChange={set("trailerUrl")} />
+              <TeaserField
+                mode={teaserMode} onModeChange={setTeaserMode}
+                trailerUrl={form.trailerUrl || ""} onTrailerUrlChange={(v) => setForm((f: any) => ({ ...f, trailerUrl: v }))}
+                teaserKey={teaserKey} onTeaserKeyChange={setTeaserKey}
+                onClearTeaser={() => { setTeaserKey(""); setHasExistingTeaser(false); }}
+                hasExistingTeaser={hasExistingTeaser}
+              />
               <Input label="Duration (minutes)" type="number" value={form.duration || ""} onChange={set("duration")} />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-white font-medium text-sm mb-4 pb-2 border-b border-[#1E1E2E]">Additional Film Details (optional)</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Language" placeholder="e.g. Telugu" value={form.language || ""} onChange={set("language")} />
+                <Input label="Certification" placeholder="e.g. U/A" value={form.certification || ""} onChange={set("certification")} />
+              </div>
+              <Input label="Copyright / Ownership" placeholder="e.g. (c) 2026 XYZ Productions. All rights reserved."
+                value={form.copyrightOwner || ""} onChange={set("copyrightOwner")} />
+              <div className="space-y-1.5">
+                <label className="text-sm text-gray-400">Scheduled Release (date & time)</label>
+                <Input type="datetime-local" value={form.releaseDate || ""} onChange={set("releaseDate")} />
+                <p className="text-gray-600 text-xs">Leave empty to publish immediately. Otherwise the movie stays hidden from customers until this moment.</p>
+              </div>
             </div>
           </div>
 

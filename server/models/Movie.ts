@@ -27,8 +27,18 @@ const movieSchema = new Schema<IMovie>(
         taxPercentage: { type: Number, default: 0, min: 0, max: 100 },
         poster: { type: String, required: true },      // Cloudinary URL
         videoKey: { type: String, required: true, select: false },  // private S3 key — never returned by default
-        trailerUrl: { type: String },
+        trailerUrl: { type: String },                   // external link (e.g. YouTube) — mutually exclusive with teaserKey
+        teaserKey: { type: String, select: false },     // private S3 key for an uploaded teaser (~90s), streamed via signed URL
         duration: { type: Number },                    // in minutes
+
+        // Film details / metadata
+        language: { type: String, trim: true },
+        certification: { type: String, trim: true },    // e.g. "U", "U/A", "A"
+        copyrightOwner: { type: String, trim: true },    // e.g. "© 2026 XYZ Productions. All rights reserved."
+
+        // Scheduled release — hidden from public listings until this date/time passes.
+        // Empty/absent = published immediately (subject to isActive as before).
+        releaseDate: { type: Date },
         expiryDays: { type: Number, required: true, default: 30 },
         isFeatured: { type: Boolean, default: false },
         isActive: { type: Boolean, default: true },

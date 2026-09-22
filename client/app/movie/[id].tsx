@@ -120,18 +120,28 @@ export default function MovieDetail() {
         } catch {}
     };
 
-    // Feature 2 — Watch Trailer/Teaser
+    // Feature 2 — Watch Trailer/Teaser: either an uploaded teaser (signed URL, fetched
+    // fresh each tap) or an external link (YouTube etc, opened directly)
+    const [loadingTeaser, setLoadingTeaser] = useState(false);
     const handleWatchTrailer = async () => {
-        if (!movie?.trailerUrl) return;
         try {
-            const supported = await Linking.canOpenURL(movie.trailerUrl);
+            let url = movie?.trailerUrl;
+            if (movie?.hasTeaser) {
+                setLoadingTeaser(true);
+                const { data } = await api.get(`/movies/${id}/teaser`);
+                url = data?.data?.streamUrl;
+            }
+            if (!url) return;
+            const supported = await Linking.canOpenURL(url);
             if (supported) {
-                await Linking.openURL(movie.trailerUrl);
+                await Linking.openURL(url);
             } else {
                 Toast.show({ type: "error", text1: "Cannot open link", text2: "Invalid trailer URL" });
             }
         } catch {
             Toast.show({ type: "error", text1: "Error", text2: "Could not open trailer" });
+        } finally {
+            setLoadingTeaser(false);
         }
     };
 
@@ -316,12 +326,15 @@ export default function MovieDetail() {
                         {movie.duration && <MetaChip icon="time-outline" label={`${movie.duration} min`} colors={colors} />}
                         {movie.ratings?.average > 0 && <MetaChip icon="star" label={`${movie.ratings.average.toFixed(1)} (${movie.ratings.count})`} colors={colors} iconColor="#FFD700" />}
                         <MetaChip icon="key-outline" label={`${movie.expiryDays}d access`} colors={colors} />
+                        {movie.language && <MetaChip icon="language-outline" label={movie.language} colors={colors} />}
+                        {movie.certification && <MetaChip icon="shield-checkmark-outline" label={movie.certification} colors={colors} />}
                     </ScrollView>
 
-                    {/* Feature 2 — Trailer button: shown only when trailerUrl exists */}
-                    {movie.trailerUrl && (
+                    {/* Feature 2 — Trailer button: shown for either an external link or an uploaded teaser */}
+                    {(movie.trailerUrl || movie.hasTeaser) && (
                         <TouchableOpacity
                             onPress={handleWatchTrailer}
+                            disabled={loadingTeaser}
                             style={{
                                 flexDirection: "row", alignItems: "center", justifyContent: "center",
                                 gap: 10, marginBottom: 14,
@@ -330,17 +343,21 @@ export default function MovieDetail() {
                                 backgroundColor: colors.accent + "12",
                             }}
                         >
-                            <View style={{
-                                width: 32, height: 32, borderRadius: 16,
-                                backgroundColor: colors.accent,
-                                justifyContent: "center", alignItems: "center",
-                            }}>
-                                <Ionicons name="logo-youtube" size={18} color="#fff" />
-                            </View>
-                            <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 15 }}>
-                                Watch Trailer / Teaser
-                            </Text>
-                            <Ionicons name="open-outline" size={16} color={colors.accent} />
+                            {loadingTeaser ? <ActivityIndicator color={colors.accent} /> : (
+                                <>
+                                    <View style={{
+                                        width: 32, height: 32, borderRadius: 16,
+                                        backgroundColor: colors.accent,
+                                        justifyContent: "center", alignItems: "center",
+                                    }}>
+                                        <Ionicons name={movie.hasTeaser ? "play" : "logo-youtube"} size={18} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 15 }}>
+                                        Watch Trailer / Teaser
+                                    </Text>
+                                    <Ionicons name="open-outline" size={16} color={colors.accent} />
+                                </>
+                            )}
                         </TouchableOpacity>
                     )}
 
@@ -466,6 +483,12 @@ export default function MovieDetail() {
                             </>
                         )}
                     </View>
+
+                    {movie.copyrightOwner && (
+                        <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: "center", marginTop: 20 }}>
+                            {movie.copyrightOwner}
+                        </Text>
+                    )}
                 </View>
             </ScrollView>
 

@@ -3,6 +3,7 @@ import {
     getMovies,
     getMovie,
     getSearchSuggestions,
+    getTeaserUrl,
     createMovie,
     updateMovie,
     deleteMovie,
@@ -13,10 +14,11 @@ import { optionalAuth } from "../middleware/optionalAuth.js";
 
 const router = express.Router();
 
-// Public routes
-router.get("/", getMovies);
+// Public routes — optionalAuth so admins see scheduled/unreleased movies too
+router.get("/", optionalAuth, getMovies);
 router.get("/search/suggestions", getSearchSuggestions);  // must be before /:id
 router.get("/:id", optionalAuth, getMovie);
+router.get("/:id/teaser", getTeaserUrl);  // public — no license required to preview a teaser
 
 // Admin only
 router.post("/", protect, authorize("admin"), createMovie);

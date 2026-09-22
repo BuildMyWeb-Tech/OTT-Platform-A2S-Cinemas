@@ -74,15 +74,16 @@ app.get("/api/home", async (req, res) => {
         const Movie = (await import("./models/Movie.js")).default;
         const Category = (await import("./models/Category.js")).default;
         const Notification = (await import("./models/Notification.js")).default;
+        const { notYetReleasedExcluded } = await import("./controllers/movieController.js");
 
         const [featured, movies, categories, notifications] = await Promise.all([
-            Movie.find({ isActive: true, isFeatured: true })
+            Movie.find({ isActive: true, isFeatured: true, ...notYetReleasedExcluded() })
                 .select("-videoKey")
                 .populate("categories", "name slug")
                 .sort("-createdAt")
                 .limit(6)
                 .lean(),
-            Movie.find({ isActive: true })
+            Movie.find({ isActive: true, ...notYetReleasedExcluded() })
                 .select("-videoKey")
                 .populate("categories", "name slug")
                 .sort("-createdAt")

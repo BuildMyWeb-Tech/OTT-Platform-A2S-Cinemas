@@ -29,12 +29,27 @@ const sanitizePeopleList = (
         .filter((entry) => entry.name && (!roleRequired || entry.role));
 };
 
+// A movie with a future releaseDate is hidden from public discovery until that
+// moment passes. Admins always see everything regardless of this filter.
+export const notYetReleasedExcluded = () => ({
+    $or: [
+        { releaseDate: { $exists: false } },
+        { releaseDate: null },
+        { releaseDate: { $lte: new Date() } },
+    ],
+});
+
+const isAdminReq = (req: Request) => (req as any).user?.role === "admin";
+
 // ── GET /api/movies ───────────────────────────────────────────────────────────
 export const getMovies = async (req: Request, res: Response) => {
     try {
         const { page = 1, limit = 10, genre, search, featured, categoryId, category } = req.query;
 
         const query: any = { isActive: true };
+        if (!isAdminReq(req)) {
+            query.$and = [notYetReleasedExcluded()];
+        }
 
         // Genre filter (backward compat)
         if (genre && genre !== "All") query.genre = genre;
@@ -123,7 +138,7 @@ export const getSearchSuggestions = async (req: Request, res: Response) => {
         const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const rx = new RegExp(escaped, "i");
         const movies = await Movie.find(
-            { isActive: true, title: rx },
+            { isActive: true, title: rx, ...notYetReleasedExcluded() },
             { title: 1, poster: 1, price: 1 }
         )
             .limit(8)
@@ -145,16 +160,17 @@ export const getMovie = async (req: Request, res: Response) => {
         }
 
         const movie = await Movie.findById(id)
-            .select("-videoKey")
+            .select("-videoKey +teaserKey")
             .populate("categories", "name slug");
 
         if (!movie) {
             return res.status(404).json({ success: false, message: "Movie not found" });
         }
 
-        // Hide inactive movies from non-admin requests
+        // Hide inactive / not-yet-released movies from non-admin requests
         const isAdmin = req.user?.role === "admin";
-        if (!movie.isActive && !isAdmin) {
+        const notYetReleased = !!movie.releaseDate && movie.releaseDate.getTime() > Date.now();
+        if ((!movie.isActive || notYetReleased) && !isAdmin) {
             return res.status(404).json({ success: false, message: "Movie not found" });
         }
 
@@ -172,13 +188,43 @@ export const getMovie = async (req: Request, res: Response) => {
             createdAt: r.createdAt,
         }));
 
+        const movieObj: any = movie.toObject();
+        const hasTeaser = !!movieObj.teaserKey;
+        delete movieObj.teaserKey; // private S3 key — never sent to the client
+
         res.json({
             success: true,
             data: {
-                ...withPricing(movie.toObject()),
+                ...withPricing(movieObj),
+                hasTeaser,
                 reviews: formattedReviews,
             },
         });
+    } catch (error: any) {
+        if (error.name === "CastError") {
+            return res.status(400).json({ success: false, message: "Invalid movie ID" });
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ── GET /api/movies/:id/teaser — public, no license required ─────────────────
+export const getTeaserUrl = async (req: Request, res: Response) => {
+    try {
+        const id = String(req.params.id);
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ success: false, message: "Invalid movie ID" });
+        }
+
+        const movie = await Movie.findById(id).select("+teaserKey isActive");
+        if (!movie || !movie.isActive || !movie.teaserKey) {
+            return res.status(404).json({ success: false, message: "No teaser available for this movie" });
+        }
+
+        const { getCloudFrontSignedUrl } = await import("../config/s3.js");
+        const streamUrl = getCloudFrontSignedUrl(movie.teaserKey, 3600); // short-lived — teaser only, not the full film
+
+        res.json({ success: true, data: { streamUrl } });
     } catch (error: any) {
         if (error.name === "CastError") {
             return res.status(400).json({ success: false, message: "Invalid movie ID" });
@@ -224,6 +270,7 @@ export const createMovie = async (req: Request, res: Response) => {
         if (sanitizedCast !== undefined) req.body.cast = sanitizedCast;
         const sanitizedCrew = sanitizePeopleList(req.body.crew, { roleRequired: true });
         if (sanitizedCrew !== undefined) req.body.crew = sanitizedCrew;
+        if (req.body.releaseDate === "") delete req.body.releaseDate;
 
         const movie = await Movie.create(req.body);
 
@@ -241,8 +288,8 @@ export const createMovie = async (req: Request, res: Response) => {
         delete (movieResponse as any).videoKey;
         res.status(201).json({ success: true, data: withPricing(movieResponse) });
     } catch (error: any) {
-        if (error.name === "ValidationError") {
-            return res.status(400).json({ success: false, message: error.message });
+        if (error.name === "ValidationError" || error.name === "CastError") {
+            return res.status(400).json({ success: false, message: error.name === "CastError" ? "Invalid field value (check Release Date format)" : error.message });
         }
         res.status(500).json({ success: false, message: error.message });
     }
@@ -274,6 +321,7 @@ export const updateMovie = async (req: Request, res: Response) => {
         if (sanitizedCastUpdate !== undefined) req.body.cast = sanitizedCastUpdate;
         const sanitizedCrewUpdate = sanitizePeopleList(req.body.crew, { roleRequired: true });
         if (sanitizedCrewUpdate !== undefined) req.body.crew = sanitizedCrewUpdate;
+        if (req.body.releaseDate === "") req.body.releaseDate = null;
 
         const movie = await Movie.findByIdAndUpdate(id, req.body, {
             new: true,
@@ -288,8 +336,8 @@ export const updateMovie = async (req: Request, res: Response) => {
         delete (movieResponse as any).videoKey;
         res.json({ success: true, data: withPricing(movieResponse) });
     } catch (error: any) {
-        if (error.name === "ValidationError") {
-            return res.status(400).json({ success: false, message: error.message });
+        if (error.name === "ValidationError" || error.name === "CastError") {
+            return res.status(400).json({ success: false, message: error.name === "CastError" ? "Invalid field value (check Release Date format)" : error.message });
         }
         res.status(500).json({ success: false, message: error.message });
     }

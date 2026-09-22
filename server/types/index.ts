@@ -117,7 +117,12 @@ export interface IMovie extends Document {
     poster: string;
     videoKey: string;
     trailerUrl?: string;
+    teaserKey?: string;
     duration?: number;
+    language?: string;
+    certification?: string;
+    copyrightOwner?: string;
+    releaseDate?: Date;
     expiryDays: number;
     isFeatured: boolean;
     isActive: boolean;
