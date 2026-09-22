@@ -2,7 +2,7 @@
   "expo": {
     "name": "A2S Cinemas",
     "slug": "ott-platform",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "a2scinemas",
@@ -13,6 +13,10 @@
     },
     "android": {
       "package": "com.a2scinemas.app",
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -51,7 +55,9 @@
           "resizeMode": "contain",
           "backgroundColor": "#0A0A0F"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true,
