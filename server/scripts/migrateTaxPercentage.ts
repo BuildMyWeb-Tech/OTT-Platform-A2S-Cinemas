@@ -7,6 +7,11 @@
  * - Does NOT touch purchases: completed orders keep their original amounts
  * - Safe to re-run
  */
+
+import dns from "dns";
+
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config();
