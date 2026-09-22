@@ -57,7 +57,17 @@
         }
       ],
       "expo-font",
-      "expo-router"
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# Razorpay Android checkout SDK (com.razorpay:checkout) has no bundled\n# consumer ProGuard rules of its own — these are Razorpay's official\n# recommended keep rules for their WebView-based checkout bridge.\n# (react-native-reanimated's keep rules are already in the default\n# RN/Expo proguard-rules.pro template — not duplicated here.)\n-keepattributes *Annotation*\n-dontwarn com.razorpay.**\n-keep class com.razorpay.** {*;}\n-optimizations !method/inlining/*\n-keepclasseswithmembers class * {\n  public void onPayment*(...);\n}\n"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
