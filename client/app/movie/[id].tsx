@@ -120,18 +120,18 @@ export default function MovieDetail() {
         } catch {}
     };
 
-    // Feature 2 — Watch Trailer/Teaser: either an uploaded teaser (signed URL, fetched
-    // fresh each tap) or an external link (YouTube etc, opened directly)
+    // Feature 2 — Watch Trailer/Teaser: an uploaded teaser plays in-app (same
+    // player as the movie, just no license check); an external link (YouTube
+    // etc) opens outside the app as before.
     const [loadingTeaser, setLoadingTeaser] = useState(false);
     const handleWatchTrailer = async () => {
+        if (movie?.hasTeaser) {
+            router.push(`/player/teaser/${id}` as any);
+            return;
+        }
+        const url = movie?.trailerUrl;
+        if (!url) return;
         try {
-            let url = movie?.trailerUrl;
-            if (movie?.hasTeaser) {
-                setLoadingTeaser(true);
-                const { data } = await api.get(`/movies/${id}/teaser`);
-                url = data?.data?.streamUrl;
-            }
-            if (!url) return;
             const supported = await Linking.canOpenURL(url);
             if (supported) {
                 await Linking.openURL(url);
