@@ -2,6 +2,7 @@
 import TaxField from "@/components/TaxField";
 import PeopleListField, { Person } from "@/components/PeopleListField";
 import TeaserField from "@/components/TeaserField";
+import ScheduledReleaseField from "@/components/ScheduledReleaseField";
 import { validateTax } from "@/lib/pricing";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -420,7 +421,7 @@ export default function AddMoviePage() {
                             value={form.copyrightOwner} onChange={setField("copyrightOwner")} />
                         <div className="space-y-1.5">
                             <label className="text-sm text-gray-400">Scheduled Release (date & time)</label>
-                            <Input type="datetime-local" value={form.releaseDate} onChange={setField("releaseDate")} />
+                            <ScheduledReleaseField value={form.releaseDate} onChange={(iso) => setForm((f) => ({ ...f, releaseDate: iso }))} />
                             <p className="text-gray-600 text-xs">Leave empty to publish immediately. Otherwise the movie stays hidden from customers until this moment.</p>
                         </div>
                     </div>

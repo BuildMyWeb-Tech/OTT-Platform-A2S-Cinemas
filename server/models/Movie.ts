@@ -65,7 +65,11 @@ const movieSchema = new Schema<IMovie>(
 );
 
 // Text search index
-movieSchema.index({ title: "text", description: "text" });
+// language_override: MongoDB's text index reserves the field named "language" by
+// default for its own stemming rules, and only accepts a small fixed list of values
+// (not e.g. "Tamil") — our own `language` field (film language, unrelated to text
+// search) would otherwise collide with it. Point it at an unused field name instead.
+movieSchema.index({ title: "text", description: "text" }, { language_override: "textSearchLanguage" });
 
 // Performance indexes
 movieSchema.index({ isActive: 1 });

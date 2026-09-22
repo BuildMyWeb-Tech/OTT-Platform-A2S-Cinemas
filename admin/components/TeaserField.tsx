@@ -4,7 +4,8 @@ import { Film, X } from "lucide-react";
 import { Input, Spinner } from "@/components/ui";
 import api from "@/lib/api";
 
-export const MAX_TEASER_SECONDS = 105; // target ~90s, small buffer either side
+export const MIN_TEASER_SECONDS = 45;
+export const MAX_TEASER_SECONDS = 300; // 5 minutes
 
 type TeaserMode = "url" | "upload";
 
@@ -46,8 +47,8 @@ export default function TeaserField({
     setUpload({ ...emptyUpload(), uploading: true });
     try {
       const duration = await readDuration(file);
-      if (duration > MAX_TEASER_SECONDS) {
-        setUpload({ ...emptyUpload(), error: `This video is ${Math.round(duration)}s long — teasers must be no longer than ~${MAX_TEASER_SECONDS}s (target ~90s).` });
+      if (duration < MIN_TEASER_SECONDS || duration > MAX_TEASER_SECONDS) {
+        setUpload({ ...emptyUpload(), error: `This video is ${Math.round(duration)}s long — teasers must be between ${MIN_TEASER_SECONDS}s and ${MAX_TEASER_SECONDS / 60} minutes.` });
         return;
       }
       const { data } = await api.post("/admin/upload-url", { fileName: file.name, fileType: file.type, folder: "teasers" });
@@ -102,7 +103,7 @@ export default function TeaserField({
                 <div className="flex flex-col items-center gap-2">
                   <Film size={26} className="text-gray-600" />
                   <p className="text-gray-400 text-sm">Click to upload teaser</p>
-                  <p className="text-gray-600 text-xs">MP4, MOV — max ~{MAX_TEASER_SECONDS}s (target ~90s)</p>
+                  <p className="text-gray-600 text-xs">MP4, MOV — {MIN_TEASER_SECONDS}s to {MAX_TEASER_SECONDS / 60} minutes</p>
                 </div>
               )}
             </div>

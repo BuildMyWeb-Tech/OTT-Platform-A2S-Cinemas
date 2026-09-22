@@ -2,6 +2,7 @@
 import TaxField from "@/components/TaxField";
 import PeopleListField, { Person } from "@/components/PeopleListField";
 import TeaserField from "@/components/TeaserField";
+import ScheduledReleaseField from "@/components/ScheduledReleaseField";
 import { validateTax } from "@/lib/pricing";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -14,14 +15,6 @@ import { Movie } from "@/lib/types";
 const GENRES = ["Action", "Drama", "Comedy", "Thriller", "Horror", "Romance", "SciFi", "Documentary", "Animation", "Other"];
 
 interface Category { _id: string; name: string; slug: string; isActive: boolean; }
-
-// datetime-local inputs work in the browser's local time with no timezone suffix —
-// convert a stored UTC ISO string to that local naive format for display.
-function toLocalDatetimeInput(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export default function EditMoviePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -64,7 +57,7 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         language: m.language || "",
         certification: m.certification || "",
         copyrightOwner: m.copyrightOwner || "",
-        releaseDate: m.releaseDate ? toLocalDatetimeInput(m.releaseDate) : "",
+        releaseDate: m.releaseDate || "",
       });
       setCast((m.cast || []).map((c: any) => ({ name: c.name || "", role: c.role || "" })));
       setCrew((m.crew || []).map((c: any) => ({ name: c.name || "", role: c.role || "" })));
@@ -135,7 +128,7 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
         language: form.language?.trim() || undefined,
         certification: form.certification?.trim() || undefined,
         copyrightOwner: form.copyrightOwner?.trim() || undefined,
-        releaseDate: form.releaseDate ? new Date(form.releaseDate).toISOString() : "",
+        releaseDate: form.releaseDate || "",
       });
       router.push("/movies");
     } catch (err: any) {
@@ -291,7 +284,7 @@ export default function EditMoviePage({ params }: { params: { id: string } }) {
                 value={form.copyrightOwner || ""} onChange={set("copyrightOwner")} />
               <div className="space-y-1.5">
                 <label className="text-sm text-gray-400">Scheduled Release (date & time)</label>
-                <Input type="datetime-local" value={form.releaseDate || ""} onChange={set("releaseDate")} />
+                <ScheduledReleaseField value={form.releaseDate || ""} onChange={(iso) => setForm((f: any) => ({ ...f, releaseDate: iso }))} />
                 <p className="text-gray-600 text-xs">Leave empty to publish immediately. Otherwise the movie stays hidden from customers until this moment.</p>
               </div>
             </div>
