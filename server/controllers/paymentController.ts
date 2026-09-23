@@ -238,7 +238,7 @@ export const servePaymentPage = async (req: Request, res: Response) => {
     const movieTitle = clean(req.query.movieTitle);
     const movieId = clean(req.query.movieId);
 
-    const baseUrl = process.env.BASE_URL || "https://ott-platform-a2s-cinemas.onrender.com/api";
+    const baseUrl = process.env.BASE_URL || "https://ott-platform-a2s-cinemas-sk2q.onrender.com/api";
     const callbackUrl = `${baseUrl}/payment/callback`;
     const displayAmount = (Number(amount) / 100).toFixed(2).replace(/\.00$/, "");
 

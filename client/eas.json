@@ -14,7 +14,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ott-platform-a2s-cinemas.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://ott-platform-a2s-cinemas-sk2q.onrender.com/api"
       }
     },
     "production": {
@@ -23,7 +23,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ott-platform-a2s-cinemas.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://ott-platform-a2s-cinemas-sk2q.onrender.com/api"
       }
     },
     "playstore": {
@@ -32,7 +32,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ott-platform-a2s-cinemas.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://ott-platform-a2s-cinemas-sk2q.onrender.com/api"
       }
     }
   },
