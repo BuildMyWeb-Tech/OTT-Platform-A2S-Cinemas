@@ -34,18 +34,30 @@ export const getAllPurchases = async (req: Request, res: Response) => {
         const query: any = {};
         if (status) query.status = status;
 
-        const total = await Purchase.countDocuments(query);
-        const purchases = await Purchase.find(query)
-            .populate("user", "name email")
-            .populate("movie", "title price")
-            .sort("-createdAt")
-            .skip((Number(page) - 1) * Number(limit))
-            .limit(Number(limit));
+        // Revenue is computed independently of the list's own status filter/pagination —
+        // it's always the true total across everything, matching the movie analytics page.
+        // Only "active"/"expired" represent money actually captured; "pending"/"failed" don't.
+        const [total, purchases, revenueAgg] = await Promise.all([
+            Purchase.countDocuments(query),
+            Purchase.find(query)
+                .populate("user", "name email")
+                .populate("movie", "title price")
+                .sort("-createdAt")
+                .skip((Number(page) - 1) * Number(limit))
+                .limit(Number(limit)),
+            Purchase.aggregate([
+                { $match: { status: { $in: ["active", "expired"] } } },
+                { $group: { _id: null, total: { $sum: "$amountPaid" }, count: { $sum: 1 } } },
+            ]),
+        ]);
+
+        const revenue = revenueAgg[0] || { total: 0, count: 0 };
 
         res.json({
             success: true,
             data: purchases,
             pagination: { total, page: Number(page), pages: Math.ceil(total / Number(limit)) },
+            revenue: { total: revenue.total, count: revenue.count },
         });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });

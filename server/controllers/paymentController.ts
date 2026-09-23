@@ -227,6 +227,73 @@ export const handlePaymentCallback = async (req: Request, res: Response) => {
     }
 };
 
+// POST /api/payment/webhook — called by Razorpay's servers directly, not the app.
+//
+// This is the real fix for a gap in the flow above: create-order/verify/callback all
+// depend on the customer's own app completing a round trip back to us. If a payment
+// is captured but the app crashes, loses network, or is closed right after paying,
+// none of those ever run and the purchase is stuck on "pending" forever even though
+// the customer's money was taken. Razorpay calls this endpoint independently of the
+// app the instant a payment is captured, so the purchase activates either way.
+//
+// Auth here is the webhook signature (HMAC-SHA256 over the raw body with a secret
+// configured in the Razorpay dashboard), not a JWT — there's no user session calling
+// this. Idempotent via the same activatePurchase() used everywhere else, so Razorpay's
+// automatic retries (on anything other than a 2xx) never double-activate anything.
+export const razorpayWebhook = async (req: Request, res: Response) => {
+    try {
+        const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        if (!secret) {
+            console.error("[webhook] RAZORPAY_WEBHOOK_SECRET not configured — rejecting");
+            return res.status(503).json({ success: false, message: "Webhook not configured" });
+        }
+
+        const signature = req.headers["x-razorpay-signature"];
+        const rawBody: Buffer | undefined = (req as any).rawBody;
+        if (!signature || typeof signature !== "string" || !rawBody) {
+            return res.status(400).json({ success: false, message: "Missing signature" });
+        }
+
+        const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(signature);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            console.warn("[webhook] signature mismatch — ignoring");
+            return res.status(400).json({ success: false, message: "Invalid signature" });
+        }
+
+        const event = req.body?.event;
+        const payment = req.body?.payload?.payment?.entity;
+
+        if (event === "payment.captured" && payment?.order_id && payment?.id) {
+            const purchase = await Purchase.findOne({ razorpayOrderId: payment.order_id });
+            if (!purchase) {
+                // Order not created by us, or not found (yet) — ack so Razorpay doesn't retry forever.
+                console.warn(`[webhook] payment.captured for unknown order ${payment.order_id}`);
+                return res.json({ success: true });
+            }
+            await activatePurchase(purchase, payment.id);
+            console.log(`[webhook] activated purchase ${purchase._id} from payment.captured`);
+        } else if (event === "payment.failed" && payment?.order_id) {
+            // Best-effort bookkeeping only — never activates anything. Leaves a clear
+            // "failed" status instead of an ambiguous "pending" for support/reporting.
+            await Purchase.updateOne(
+                { razorpayOrderId: payment.order_id, status: "pending" },
+                { $set: { status: "failed" } }
+            );
+        }
+
+        // Always 2xx on anything we understood (including events we don't act on) —
+        // a non-2xx tells Razorpay to keep retrying, which we don't want for events
+        // this endpoint intentionally ignores.
+        res.json({ success: true });
+    } catch (error: any) {
+        // A genuine server-side failure — let Razorpay retry this one.
+        console.error("[webhook] error:", error?.message);
+        res.status(500).json({ success: false });
+    }
+};
+
 // GET /api/payment/pay/:orderId — serves HTML payment page (no auth required)
 export const servePaymentPage = async (req: Request, res: Response) => {
     // Query params are reflected into HTML/JS below, so whitelist characters first.

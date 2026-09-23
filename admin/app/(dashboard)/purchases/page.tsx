@@ -29,9 +29,9 @@ export default function PurchasesPage() {
       const { data } = await api.get(`/purchases/admin/all?${params}`);
       setPurchases(data.data || []);
       setPagination({ pages: data.pagination?.pages ?? 1, total: data.pagination?.total ?? 0 });
-      // Calculate revenue from current page (in a real app you'd get this from backend)
-      const revenue = (data.data || []).reduce((sum: number, p: Purchase) => sum + (p.amountPaid || 0), 0);
-      if (p === 1) setTotalRevenue(revenue);
+      // True total from the backend — only counts active/expired (money actually
+      // captured), and covers every purchase, not just whatever page is showing.
+      setTotalRevenue(data.revenue?.total ?? 0);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -46,7 +46,7 @@ export default function PurchasesPage() {
       {/* Revenue card */}
       <div className="grid grid-cols-2 gap-4 mb-5">
         <StatCard label="Total Transactions" value={pagination.total} icon={TrendingUp} color="blue" />
-        <StatCard label="Page Revenue" value={`₹${totalRevenue.toLocaleString("en-IN")}`} icon={IndianRupee} color="green" />
+        <StatCard label="Total Revenue" value={`₹${totalRevenue.toLocaleString("en-IN")}`} icon={IndianRupee} color="green" />
       </div>
 
       {/* Status filter */}

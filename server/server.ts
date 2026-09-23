@@ -34,7 +34,13 @@ app.use(cors({
 }));
 
 // Body size limit — prevents large-payload DoS (TC-S11-014)
-app.use(express.json({ limit: "1mb" }));
+// verify: captures the raw request bytes on req.rawBody, needed by the Razorpay
+// webhook to check its HMAC signature (signing is done over the exact raw bytes,
+// not the re-serialized parsed object, which can differ in key order/whitespace).
+app.use(express.json({
+    limit: "1mb",
+    verify: (req: any, _res, buf) => { req.rawBody = buf; },
+}));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Debug middleware

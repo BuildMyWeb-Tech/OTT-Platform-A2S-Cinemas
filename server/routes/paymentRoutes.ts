@@ -4,6 +4,7 @@ import {
     verifyPayment,
     handlePaymentCallback,
     servePaymentPage,
+    razorpayWebhook,
 } from "../controllers/paymentController.js";
 import { protect } from "../middleware/auth.js";
 
@@ -14,5 +15,7 @@ router.post("/verify", protect, verifyPayment);
 router.get("/pay/:orderId", servePaymentPage);
 router.post("/callback", handlePaymentCallback);
 router.get("/callback", handlePaymentCallback);
+// Public — authenticated by Razorpay's own webhook signature, not a user session.
+router.post("/webhook", razorpayWebhook);
 
 export default router;

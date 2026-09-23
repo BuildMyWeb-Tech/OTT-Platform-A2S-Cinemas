@@ -18,7 +18,10 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     const [totalUsers, totalMovies, purchaseAgg, activeLicenses] = await Promise.all([
       User.countDocuments({}),
       Movie.countDocuments({ isActive: true }),
+      // Only "active"/"expired" represent money actually captured by Razorpay —
+      // "pending" (never completed/confirmed) and "failed" must not count as revenue.
       Purchase.aggregate([
+        { $match: { status: { $in: ["active", "expired"] } } },
         {
           $group: {
             _id: null,
