@@ -2,9 +2,11 @@ export interface AdminUser {
   _id: string;
   name: string;
   email: string;
+  phone?: string;
   role: "user" | "admin";
   isBlocked: boolean;
   purchasedMovies: string[];
+  whatsappGroupJoined?: boolean;
   createdAt: string;
 }
 
@@ -74,6 +76,7 @@ export interface License {
 
 export interface DashboardStats {
   totalUsers: number;
+  totalInstalls?: number;
   totalMovies: number;
   totalRevenue: number;
   totalPurchases: number;

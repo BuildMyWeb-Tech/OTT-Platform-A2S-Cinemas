@@ -59,6 +59,13 @@
       "expo-font",
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#E50914"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

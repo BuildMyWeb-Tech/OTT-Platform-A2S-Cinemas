@@ -10,7 +10,7 @@ type AuthContextType = {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
     register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-    loginWithOTP: (identifier: string, type: "phone" | "email", otp: string, purpose: "login" | "register", name?: string) => Promise<{ success: boolean; message?: string }>;
+    loginWithOTP: (identifier: string, type: "phone" | "email", otp: string, purpose: "login" | "register", name?: string, phone?: string) => Promise<{ success: boolean; message?: string }>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 };
@@ -68,10 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const loginWithOTP = async (
         identifier: string, type: "phone" | "email",
-        otp: string, purpose: "login" | "register", name?: string,
+        otp: string, purpose: "login" | "register", name?: string, phone?: string,
     ) => {
         try {
-            const { data } = await api.post("/auth/otp/verify", { identifier, type, otp, purpose, name });
+            const { data } = await api.post("/auth/otp/verify", { identifier, type, otp, purpose, name, phone });
             if (data.success) { await saveSession(data.token, data.data); return { success: true }; }
             return { success: false, message: data.message };
         } catch (e: any) {

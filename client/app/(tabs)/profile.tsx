@@ -88,9 +88,13 @@ export default function Profile() {
 
     const [signOutVisible, setSignOutVisible] = useState(false);
     const [editNameVisible, setEditNameVisible] = useState(false);
+    const [editPhoneVisible, setEditPhoneVisible] = useState(false);
     const [changePwVisible, setChangePwVisible] = useState(false);
     const [newName, setNewName] = useState(user?.name || "");
+    const [newPhone, setNewPhone] = useState(user?.phone || "");
     const [saving, setSaving] = useState(false);
+    const [savingPhone, setSavingPhone] = useState(false);
+    const PHONE_REGEX = /^[6-9]\d{9}$/;
 
     const [oldPw, setOldPw] = useState("");
     const [newPw, setNewPw] = useState("");
@@ -101,6 +105,23 @@ export default function Profile() {
     const [changingPw, setChangingPw] = useState(false);
 
     const openEditName = () => { setNewName(user?.name || ""); setEditNameVisible(true); };
+    const openEditPhone = () => { setNewPhone(user?.phone || ""); setEditPhoneVisible(true); };
+
+    const savePhone = async () => {
+        if (!PHONE_REGEX.test(newPhone.trim())) {
+            Toast.show({ type: "error", text1: "Error", text2: "Enter a valid 10-digit mobile number" });
+            return;
+        }
+        setSavingPhone(true);
+        try {
+            await api.put("/auth/profile", { phone: newPhone.trim() });
+            await refreshUser?.();
+            setEditPhoneVisible(false);
+            Toast.show({ type: "success", text1: "Done", text2: "Phone number updated successfully" });
+        } catch (e: any) {
+            Toast.show({ type: "error", text1: "Error", text2: e.response?.data?.message || "Failed to update phone number" });
+        } finally { setSavingPhone(false); }
+    };
 
     const saveName = async () => {
         if (!newName.trim()) {
@@ -323,6 +344,12 @@ export default function Profile() {
                         Account
                     </Text>
                     <SectionCard colors={colors}>
+                        <MenuRow
+                            icon="call-outline"
+                            label={user?.phone ? `Phone: ${user.phone}` : "Add Phone Number"}
+                            onPress={openEditPhone}
+                            colors={colors}
+                        />
                         <MenuRow icon="lock-closed-outline" label="Change Password" onPress={() => setChangePwVisible(true)} colors={colors} />
                         {/* Fix 9 — route to support/index not /support */}
                         <MenuRow icon="help-circle-outline" label="Help Center" onPress={() => router.push("/support" as any)} colors={colors} isLast />
@@ -385,6 +412,45 @@ export default function Profile() {
                                 style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: colors.accent, alignItems: "center" }}
                             >
                                 <Text style={{ color: "#fff", fontWeight: "700" }}>{saving ? "Saving..." : "Save"}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Edit Phone Modal */}
+            <Modal visible={editPhoneVisible} transparent animationType="fade" onRequestClose={() => setEditPhoneVisible(false)}>
+                <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", padding: 24 }}>
+                    <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 24 }}>
+                        <Text style={{ fontSize: 17, fontWeight: "700", color: colors.textPrimary, marginBottom: 16 }}>Phone Number</Text>
+                        <TextInput
+                            value={newPhone}
+                            onChangeText={(t) => setNewPhone(t.replace(/\D/g, "").slice(0, 10))}
+                            placeholder="9876543210"
+                            keyboardType="number-pad"
+                            maxLength={10}
+                            placeholderTextColor={colors.inputPlaceholder}
+                            style={{
+                                backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder,
+                                borderRadius: 12, padding: 14, fontSize: 15, color: colors.inputText, marginBottom: 20,
+                            }}
+                        />
+                        <View style={{ flexDirection: "row", gap: 10 }}>
+                            <TouchableOpacity
+                                onPress={() => setEditPhoneVisible(false)}
+                                style={{
+                                    flex: 1, paddingVertical: 14, borderRadius: 12,
+                                    backgroundColor: colors.surfaceVariant, alignItems: "center",
+                                    borderWidth: 0.5, borderColor: colors.border,
+                                }}
+                            >
+                                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={savePhone} disabled={savingPhone}
+                                style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: colors.accent, alignItems: "center" }}
+                            >
+                                <Text style={{ color: "#fff", fontWeight: "700" }}>{savingPhone ? "Saving..." : "Save"}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

@@ -39,6 +39,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       success: true,
       data: {
         totalUsers,
+        totalInstalls: totalUsers, // signup = only source of truth we have for an app install
         totalMovies,
         totalRevenue: agg.totalRevenue,
         totalPurchases: agg.totalPurchases,
@@ -409,6 +410,125 @@ export const exportMovieAnalytics = async (req: Request, res: Response) => {
         res.status(400).json({ success: false, message: "format must be csv or excel" });
     } catch (error: any) {
         console.error("Export error:", error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ── GET /api/admin/recent-activity — everything that happened in the last 48h ──
+export const getRecentActivity = async (req: Request, res: Response) => {
+    try {
+        const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+        const [newUsers, newPurchases, newReviews] = await Promise.all([
+            User.find({ createdAt: { $gte: since } }).select("name email createdAt").sort("-createdAt"),
+            Purchase.find({ createdAt: { $gte: since } })
+                .populate("user", "name email")
+                .populate("movie", "title")
+                .sort("-createdAt"),
+            Review.find({ createdAt: { $gte: since } })
+                .populate("userId", "name email")
+                .populate("movieId", "title")
+                .sort("-createdAt"),
+        ]);
+
+        const events: any[] = [];
+
+        newUsers.forEach((u) => events.push({
+            type: "signup",
+            message: `${u.name} created a new account`,
+            time: u.get("createdAt"),
+            meta: { name: u.name, email: u.email },
+        }));
+
+        newPurchases.forEach((p) => {
+            const user = p.user as any;
+            const movie = p.movie as any;
+            const verb = p.status === "active" || p.status === "expired" ? "purchased" : p.status === "pending" ? "started purchasing" : "failed to purchase";
+            events.push({
+                type: p.status === "active" || p.status === "expired" ? "purchase" : p.status,
+                message: `${user?.name ?? "Someone"} ${verb} "${movie?.title ?? "a movie"}" — ₹${p.amountPaid}`,
+                time: p.get("createdAt"),
+                meta: { name: user?.name, email: user?.email, movie: movie?.title, amount: p.amountPaid, status: p.status },
+            });
+        });
+
+        newReviews.forEach((r) => {
+            const user = r.userId as any;
+            const movie = r.movieId as any;
+            events.push({
+                type: "review",
+                message: `${user?.name ?? "Someone"} rated "${movie?.title ?? "a movie"}" ${r.rating}★`,
+                time: r.get("createdAt"),
+                meta: { name: user?.name, email: user?.email, movie: movie?.title, rating: r.rating },
+            });
+        });
+
+        events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+        res.json({
+            success: true,
+            data: events,
+            summary: {
+                newUsers: newUsers.length,
+                newPurchases: newPurchases.filter((p) => p.status === "active" || p.status === "expired").length,
+                newReviews: newReviews.length,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ── GET /api/admin/marketing — users list for WhatsApp-group outreach ─────────
+export const getMarketingUsers = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const search = req.query.search as string;
+        const joined = req.query.joined as string; // "yes" | "no"
+        const skip = (page - 1) * limit;
+
+        const filter: any = {};
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { phone: { $regex: search, $options: "i" } },
+            ];
+        }
+        if (joined === "yes") filter.whatsappGroupJoined = true;
+        if (joined === "no") filter.whatsappGroupJoined = false;
+
+        const [users, total] = await Promise.all([
+            User.find(filter)
+                .select("name phone whatsappGroupJoined createdAt")
+                .sort("-createdAt")
+                .skip(skip)
+                .limit(limit),
+            User.countDocuments(filter),
+        ]);
+
+        res.json({
+            success: true,
+            data: users,
+            pagination: { page, pages: Math.ceil(total / limit), total, limit },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ── PATCH /api/admin/marketing/:id/whatsapp — toggle join status ──────────────
+export const toggleWhatsappGroup = async (req: Request, res: Response) => {
+    try {
+        const { joined } = req.body;
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { whatsappGroupJoined: !!joined },
+            { new: true }
+        ).select("name phone whatsappGroupJoined");
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+        res.json({ success: true, data: user });
+    } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
 };

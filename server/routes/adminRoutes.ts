@@ -8,7 +8,11 @@ import {
     getMovieAnalytics,
     exportMovieAnalytics,
     cleanupUpload,
+    getRecentActivity,
+    getMarketingUsers,
+    toggleWhatsappGroup,
 } from "../controllers/adminController.js";
+import { updateVersionConfig } from "../controllers/appConfigController.js";
 import { protect, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -22,5 +26,9 @@ router.post("/upload-url", getUploadUrl);
 router.get("/analytics/:movieId", getMovieAnalytics);
 router.get("/analytics/:movieId/export", exportMovieAnalytics);
 router.delete("/cleanup-upload", protect, authorize("admin"), cleanupUpload);
+router.get("/recent-activity", getRecentActivity);
+router.get("/marketing", getMarketingUsers);
+router.patch("/marketing/:id/whatsapp", toggleWhatsappGroup);
+router.patch("/app-config", updateVersionConfig);
 
 export default router;

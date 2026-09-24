@@ -11,6 +11,8 @@ export interface IUser extends Document {
     isBlocked: boolean;
     purchasedMovies: mongoose.Types.ObjectId[];
     authMethod: "password" | "phone_otp" | "email_otp";
+    whatsappGroupJoined: boolean;
+    pushToken?: string;
     comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -29,6 +31,8 @@ const userSchema = new Schema<IUser>(
             enum: ["password", "phone_otp", "email_otp"],
             default: "password",
         },
+        whatsappGroupJoined: { type: Boolean, default: false },
+        pushToken: { type: String },
     },
     { timestamps: true }
 );

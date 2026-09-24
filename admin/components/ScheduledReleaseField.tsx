@@ -1,5 +1,5 @@
 "use client";
-import { Input } from "@/components/ui";
+import { Select, Input } from "@/components/ui";
 
 interface Props {
   /** UTC ISO string (e.g. from the server), or "" when not scheduled. */
@@ -9,41 +9,86 @@ interface Props {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-function isoToParts(iso: string): { date: string; time: string } {
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function isoToParts(iso: string): { year: string; month: string; day: string; time: string } {
   const d = new Date(iso);
   return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    year: String(d.getFullYear()),
+    month: String(d.getMonth() + 1),
+    day: String(d.getDate()),
     time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
   };
 }
 
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 6 }, (_, i) => currentYear + i);
+
 /**
- * Separate native date + time inputs instead of a single datetime-local input.
+ * Dropdown year/month/day selects instead of a native <input type="date">.
+ * The native date picker's year field is a bare spinner/typed number that's
+ * error-prone (easy to land on the wrong year by a stray scroll/keystroke) —
+ * explicit dropdowns remove that failure mode entirely.
  *
- * Both `<input type="date">` and `<input type="time">` are guaranteed by spec to
- * report their `.value` as a locale-independent "YYYY-MM-DD" / "HH:mm" (24-hour)
- * string, regardless of whatever format (12h/24h) the picker displays to the
- * admin — so this works identically no matter the OS clock setting.
- *
- * The date and time parts are combined using the numeric `Date(y, m, d, h, min)`
- * constructor, which JavaScript always interprets as the browser's local time —
- * never string-parsed, so there's no ambiguity about whose timezone it means.
+ * Time still uses <input type="time">, whose `.value` is spec-guaranteed to be
+ * locale-independent "HH:mm" (24-hour) regardless of the OS's 12h/24h display
+ * setting. Everything is combined via the numeric `Date(y, m, d, h, min)`
+ * constructor, always interpreted as the browser's local time.
  */
 export default function ScheduledReleaseField({ value, onChange }: Props) {
-  const { date, time } = value ? isoToParts(value) : { date: "", time: "" };
+  const parts = value ? isoToParts(value) : { year: "", month: "", day: "", time: "" };
 
-  const combine = (newDate: string, newTime: string) => {
-    if (!newDate) { onChange(""); return; }
-    const [y, m, d] = newDate.split("-").map(Number);
-    const [hh, mm] = (newTime || "00:00").split(":").map(Number);
-    const local = new Date(y, m - 1, d, hh, mm);
+  const daysInMonth = (year: string, month: string) => {
+    if (!year || !month) return 31;
+    return new Date(Number(year), Number(month), 0).getDate();
+  };
+
+  const combine = (year: string, month: string, day: string, time: string) => {
+    if (!year || !month || !day) { onChange(""); return; }
+    const maxDay = daysInMonth(year, month);
+    const safeDay = Math.min(Number(day), maxDay);
+    const [hh, mm] = (time || "00:00").split(":").map(Number);
+    const local = new Date(Number(year), Number(month) - 1, safeDay, hh, mm);
     onChange(local.toISOString());
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <Input type="date" value={date} onChange={(e) => combine(e.target.value, time)} />
-      <Input type="time" value={time} onChange={(e) => combine(date, e.target.value)} />
+    <div className="grid grid-cols-4 gap-3">
+      <Select
+        value={parts.day}
+        onChange={(e) => combine(parts.year, parts.month, e.target.value, parts.time)}
+      >
+        <option value="">Day</option>
+        {Array.from({ length: daysInMonth(parts.year, parts.month) }, (_, i) => i + 1).map((d) => (
+          <option key={d} value={d}>{d}</option>
+        ))}
+      </Select>
+      <Select
+        value={parts.month}
+        onChange={(e) => combine(parts.year, e.target.value, parts.day, parts.time)}
+      >
+        <option value="">Month</option>
+        {MONTHS.map((m, i) => (
+          <option key={m} value={i + 1}>{m}</option>
+        ))}
+      </Select>
+      <Select
+        value={parts.year}
+        onChange={(e) => combine(e.target.value, parts.month, parts.day, parts.time)}
+      >
+        <option value="">Year</option>
+        {YEARS.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </Select>
+      <Input
+        type="time"
+        value={parts.time}
+        onChange={(e) => combine(parts.year, parts.month, parts.day, e.target.value)}
+      />
     </div>
   );
 }

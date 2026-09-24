@@ -11,6 +11,7 @@ const signToken = (id: string) => {
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[6-9]\d{9}$/;
 
 export const register = async (req: Request, res: Response) => {
     try {
@@ -77,19 +78,41 @@ export const getMe = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { name, image } = req.body;
+        const { name, image, phone } = req.body;
         if (name !== undefined && (typeof name !== "string" || !name.trim())) {
             return res.status(400).json({ success: false, message: "Name cannot be empty" });
+        }
+        if (phone !== undefined && phone !== "") {
+            const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
+            if (!PHONE_REGEX.test(normalizedPhone)) {
+                return res.status(400).json({ success: false, message: "Enter a valid 10-digit mobile number" });
+            }
         }
         const updateData: any = {};
         if (name !== undefined) updateData.name = name.trim();
         if (image !== undefined) updateData.image = image;
+        if (phone !== undefined) {
+            updateData.phone = phone === "" ? "" : String(phone).replace(/\D/g, "").slice(-10);
+        }
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { $set: updateData },
             { new: true, runValidators: false }
         ).select("-password");
         res.json({ success: true, data: user });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const savePushToken = async (req: Request, res: Response) => {
+    try {
+        const { pushToken } = req.body;
+        if (typeof pushToken !== "string" || !pushToken.startsWith("ExponentPushToken")) {
+            return res.status(400).json({ success: false, message: "Invalid push token" });
+        }
+        await User.findByIdAndUpdate(req.user._id, { $set: { pushToken } });
+        res.json({ success: true });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }

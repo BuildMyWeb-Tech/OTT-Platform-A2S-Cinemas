@@ -1,5 +1,5 @@
 import express from "express";
-import { register, login, getMe, updateProfile, changePassword } from "../controllers/authController.js";
+import { register, login, getMe, updateProfile, changePassword, savePushToken } from "../controllers/authController.js";
 import { sendOTP, verifyOTP } from "../controllers/otpController.js";
 import { protect } from "../middleware/auth.js";
 import { loginRateLimiter, registerRateLimiter } from "../middleware/rateLimiter.js";
@@ -12,6 +12,7 @@ router.post("/register", registerRateLimiter, register);
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
 router.put("/change-password", protect, changePassword);
+router.put("/push-token", protect, savePushToken);
 
 // OTP auth
 router.post("/otp/send", sendOTP);

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Film, Tag, Users, Receipt, Key, LogOut, Clapperboard, Star } from "lucide-react";
+import { LayoutDashboard, Film, Tag, Users, Receipt, Key, LogOut, Clapperboard, Star, Activity, Megaphone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { clsx } from "clsx";
 
@@ -13,6 +13,8 @@ const NAV = [
     { href: "/users",      icon: Users,           label: "Users"      },
     { href: "/purchases",  icon: Receipt,         label: "Purchases"  },
     { href: "/licenses",   icon: Key,             label: "Licenses"   },
+    { href: "/activity",   icon: Activity,        label: "Recent Activity" },
+    { href: "/marketing",  icon: Megaphone,       label: "Marketing"  },
 ];
 
 export default function Sidebar() {

@@ -8,11 +8,14 @@ import Toast from "react-native-toast-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useEffect, useState } from "react";
 import SplashLoader from "@/components/SplashLoader";
+import ForceUpdateModal from "@/components/ForceUpdateModal";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import * as ScreenCapture from "expo-screen-capture";
 
 function AppContent() {
     const { isDark, colors } = useTheme();
     const [appReady, setAppReady] = useState(false);
+    usePushNotifications();
 
     useEffect(() => {
         // Prevent screenshots and screen recording globally
@@ -58,6 +61,7 @@ function AppContent() {
                 <Stack.Screen name="admin" />
             </Stack>
             <Toast />
+            <ForceUpdateModal />
         </>
     );
 }

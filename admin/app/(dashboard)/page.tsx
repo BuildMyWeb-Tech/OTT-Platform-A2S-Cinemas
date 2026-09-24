@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Users, Film, IndianRupee, ShoppingCart, Key, TrendingUp } from "lucide-react";
+import { Users, Film, IndianRupee, ShoppingCart, Key, TrendingUp, Smartphone } from "lucide-react";
 import { StatCard, PageLoader, Table, Badge } from "@/components/ui";
 import api from "@/lib/api";
 import { DashboardStats, Purchase } from "@/lib/types";
@@ -54,8 +54,9 @@ export default function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6" data-testid="stats-grid">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6" data-testid="stats-grid">
         <StatCard label="Total Users"     value={stats?.totalUsers ?? 0}                    icon={Users}         color="blue"  />
+        <StatCard label="App Installs"    value={stats?.totalInstalls ?? stats?.totalUsers ?? 0} icon={Smartphone} color="blue"  />
         <StatCard label="Total Movies"    value={stats?.totalMovies ?? 0}                   icon={Film}          color="amber" />
         <StatCard label="Total Revenue"   value={formatCurrency(stats?.totalRevenue ?? 0)}  icon={IndianRupee}   color="green" />
         <StatCard label="Purchases"       value={stats?.totalPurchases ?? 0}                icon={ShoppingCart}  color="red"   />
@@ -95,6 +96,81 @@ export default function DashboardPage() {
           </Table>
         )}
       </div>
+
+      <AppVersionCard />
+    </div>
+  );
+}
+
+function AppVersionCard() {
+  const [config, setConfig] = useState({ latestVersion: "", minVersion: "", updateMessage: "" });
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.get("/config/version")
+      .then(({ data }) => setConfig(data.data))
+      .catch(() => {})
+      .finally(() => setLoadingConfig(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.patch("/admin/app-config", config);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  if (loadingConfig) return null;
+
+  return (
+    <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5 mt-6">
+      <h2 className="text-white font-medium text-sm mb-1">App Version (Force Update)</h2>
+      <p className="text-gray-500 text-xs mb-4">
+        After publishing a new version on Google Play Console, set both fields to that version number
+        (e.g. "1.2.0") and save. Any app below "Minimum Required Version" will show a compulsory update
+        prompt with no skip option.
+      </p>
+      <div className="grid grid-cols-2 gap-4 mb-3">
+        <div>
+          <label className="text-xs text-gray-400 block mb-1.5">Latest Version</label>
+          <input
+            value={config.latestVersion}
+            onChange={(e) => setConfig((c) => ({ ...c, latestVersion: e.target.value }))}
+            placeholder="1.2.0"
+            className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#E50914]"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1.5">Minimum Required Version</label>
+          <input
+            value={config.minVersion}
+            onChange={(e) => setConfig((c) => ({ ...c, minVersion: e.target.value }))}
+            placeholder="1.2.0"
+            className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#E50914]"
+          />
+        </div>
+      </div>
+      <div className="mb-4">
+        <label className="text-xs text-gray-400 block mb-1.5">Update Message shown to users</label>
+        <input
+          value={config.updateMessage}
+          onChange={(e) => setConfig((c) => ({ ...c, updateMessage: e.target.value }))}
+          className="w-full bg-[#0A0A0F] border border-[#1E1E2E] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#E50914]"
+        />
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-4 py-2 rounded-lg text-sm font-medium bg-[#E50914] text-white hover:bg-[#c40812] transition-colors disabled:opacity-50"
+      >
+        {saving ? "Saving..." : saved ? "Saved!" : "Save Version"}
+      </button>
     </div>
   );
 }

@@ -4,7 +4,8 @@ import { parseTaxInput, withPricing } from "../utils/pricing.js";
 import Movie from "../models/Movie.js";
 import Category from "../models/Category.js";
 import { deleteFromS3 } from "../config/s3.js";
-import Notification from "../models/Notification.js"
+import Notification from "../models/Notification.js";
+import { sendPushToAllUsers } from "../services/pushService.js";
 
 const validGenres = [
     "Action", "Drama", "Comedy", "Thriller", "Horror",
@@ -283,6 +284,7 @@ export const createMovie = async (req: Request, res: Response) => {
             message: `${movie.title} is now available to watch.`,
             movieId: movie._id,
         });
+        sendPushToAllUsers("New Movie Added!", `${movie.title} is now available to watch.`, { movieId: String(movie._id) });
 
         const movieResponse = movie.toObject();
         delete (movieResponse as any).videoKey;

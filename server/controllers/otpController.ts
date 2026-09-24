@@ -86,7 +86,7 @@ export const sendOTP = async (req: Request, res: Response) => {
 // ── POST /api/auth/otp/verify ─────────────────────────────────────────────────
 export const verifyOTP = async (req: Request, res: Response) => {
     try {
-        const { identifier, type, otp, purpose, name } = req.body;
+        const { identifier, type, otp, purpose, name, phone } = req.body;
         console.log(`[OTP-VERIFY] type=${type} purpose=${purpose} otp=${otp}`);
 
         if (!identifier || !type || !otp || !purpose) {
@@ -144,6 +144,10 @@ export const verifyOTP = async (req: Request, res: Response) => {
                 authMethod: type === "phone" ? "phone_otp" : "email_otp",
             };
             if (type === "phone") userData.phone = normalizedId;
+            else if (phone) {
+                const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
+                if (PHONE_REGEX.test(normalizedPhone)) userData.phone = normalizedPhone;
+            }
             user = await User.create(userData);
         }
 

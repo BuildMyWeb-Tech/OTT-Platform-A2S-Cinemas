@@ -18,7 +18,10 @@ export default function SignUp() {
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [loading, setLoading] = useState(false);
+
+    const PHONE_REGEX = /^[6-9]\d{9}$/;
 
     const handleSendOTP = async () => {
         if (!name.trim()) {
@@ -26,6 +29,9 @@ export default function SignUp() {
         }
         if (!email.trim()) {
             return Toast.show({ type: "error", text1: "Email required", text2: "Enter your email address" });
+        }
+        if (!PHONE_REGEX.test(phone.trim())) {
+            return Toast.show({ type: "error", text1: "Phone required", text2: "Enter a valid 10-digit mobile number" });
         }
         setLoading(true);
         try {
@@ -44,6 +50,7 @@ export default function SignUp() {
                         type: "email",
                         purpose: "register",
                         name: name.trim(),
+                        phone: phone.trim(),
                         ...(redirectTo ? { redirectTo } : {}),
                     },
                 });
@@ -152,12 +159,37 @@ export default function SignUp() {
                             />
                         </View>
 
+                        {/* Phone — always shown */}
+                        <View style={{ marginBottom: 16 }}>
+                            <Text style={{
+                                fontSize: 13, fontWeight: "600",
+                                color: colors.textSecondary, marginBottom: 8,
+                            }}>
+                                Phone Number
+                            </Text>
+                            <TextInput
+                                style={{
+                                    backgroundColor: colors.inputBg,
+                                    borderWidth: 1, borderColor: colors.inputBorder,
+                                    borderRadius: 14, padding: 16,
+                                    fontSize: 15, color: colors.inputText,
+                                }}
+                                placeholder="9876543210"
+                                placeholderTextColor={colors.inputPlaceholder}
+                                keyboardType="number-pad"
+                                maxLength={10}
+                                value={phone}
+                                onChangeText={(t) => setPhone(t.replace(/\D/g, "").slice(0, 10))}
+                                returnKeyType="done"
+                            />
+                        </View>
+
                         {/* Send OTP to Email */}
                         <TouchableOpacity
                             onPress={handleSendOTP}
-                            disabled={loading || !email.trim() || !name.trim()}
+                            disabled={loading || !email.trim() || !name.trim() || !PHONE_REGEX.test(phone.trim())}
                             style={{
-                                backgroundColor: loading || !email.trim() || !name.trim()
+                                backgroundColor: loading || !email.trim() || !name.trim() || !PHONE_REGEX.test(phone.trim())
                                     ? colors.surfaceVariant
                                     : colors.accent,
                                 borderRadius: 14, paddingVertical: 17,

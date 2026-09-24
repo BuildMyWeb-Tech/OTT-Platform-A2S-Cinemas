@@ -15,6 +15,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import configRoutes from "./routes/configRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -125,6 +126,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/config", configRoutes);
 
 // 404 handler — clean JSON, no internals exposed
 app.use((req, res) => {

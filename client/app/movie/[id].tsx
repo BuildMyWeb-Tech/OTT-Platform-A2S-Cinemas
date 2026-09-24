@@ -35,21 +35,6 @@ function StarRating({ rating, onRate, size = 20, readonly = false }: {
     );
 }
 
-function ActionBtn({ icon, label, onPress, colors }: { icon: string; label: string; onPress: () => void; colors: any; }) {
-    return (
-        <TouchableOpacity onPress={onPress} style={{ alignItems: "center", gap: 6 }}>
-            <View style={{
-                width: 48, height: 48, borderRadius: 24,
-                backgroundColor: colors.surfaceVariant,
-                borderWidth: 0.5, borderColor: colors.border,
-                justifyContent: "center", alignItems: "center",
-            }}>
-                <Ionicons name={icon as any} size={20} color={colors.textSecondary} />
-            </View>
-            <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "500" }}>{label}</Text>
-        </TouchableOpacity>
-    );
-}
 
 export default function MovieDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -394,14 +379,6 @@ export default function MovieDetail() {
                         </View>
                     )}
 
-                    {/* ── ACTION ICONS ROW ── */}
-                    {/* Watchlist/Share/Download hidden per product decision — only Review remains, owned-only */}
-                    {owned && (
-                        <View style={{ flexDirection: "row", justifyContent: "space-around", paddingVertical: 16, marginBottom: 20, backgroundColor: colors.surface, borderRadius: 14, borderWidth: 0.5, borderColor: colors.border }}>
-                            <ActionBtn icon="create-outline" label={myReview ? "Edit Review" : "Review"} onPress={() => setShowReviewModal(true)} colors={colors} />
-                        </View>
-                    )}
-
                     {/* ── DESCRIPTION ── */}
                     <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: 10 }}>About</Text>
                     <Text style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 22, marginBottom: 4 }} numberOfLines={descExpanded ? undefined : 3}>
@@ -451,12 +428,26 @@ export default function MovieDetail() {
                                 <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary }}>Reviews</Text>
                                 <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{reviewsTotal} review{reviewsTotal !== 1 ? "s" : ""}</Text>
                             </View>
-                            {movie.ratings?.average > 0 && (
-                                <View style={{ alignItems: "flex-end" }}>
-                                    <Text style={{ fontSize: 28, fontWeight: "800", color: colors.textPrimary, lineHeight: 30 }}>{movie.ratings.average.toFixed(1)}</Text>
-                                    <StarRating rating={Math.round(movie.ratings.average)} readonly size={12} />
-                                </View>
-                            )}
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                                {owned && (
+                                    <TouchableOpacity
+                                        onPress={() => setShowReviewModal(true)}
+                                        style={{
+                                            width: 34, height: 34, borderRadius: 17,
+                                            backgroundColor: colors.surfaceVariant, borderWidth: 0.5, borderColor: colors.border,
+                                            justifyContent: "center", alignItems: "center",
+                                        }}
+                                    >
+                                        <Ionicons name={myReview ? "create-outline" : "add"} size={18} color={colors.accent} />
+                                    </TouchableOpacity>
+                                )}
+                                {movie.ratings?.average > 0 && (
+                                    <View style={{ alignItems: "flex-end" }}>
+                                        <Text style={{ fontSize: 28, fontWeight: "800", color: colors.textPrimary, lineHeight: 30 }}>{movie.ratings.average.toFixed(1)}</Text>
+                                        <StarRating rating={Math.round(movie.ratings.average)} readonly size={12} />
+                                    </View>
+                                )}
+                            </View>
                         </View>
 
                         {reviews.length === 0 ? (
@@ -471,7 +462,14 @@ export default function MovieDetail() {
                             </View>
                         ) : (
                             <>
-                                {reviews.map((review) => <ReviewCard key={review._id} review={review} colors={colors} />)}
+                                {reviews.map((review) => (
+                                    <ReviewCard
+                                        key={review._id}
+                                        review={review}
+                                        colors={colors}
+                                        onEdit={review.isOwn ? () => setShowReviewModal(true) : undefined}
+                                    />
+                                ))}
                                 {hasMoreReviews && (
                                     <TouchableOpacity
                                         onPress={() => fetchReviews(reviewsPage + 1)}
@@ -573,7 +571,7 @@ function MetaChip({ icon, label, colors, iconColor }: { icon: string; label: str
     );
 }
 
-function ReviewCard({ review, colors }: { review: Review; colors: any }) {
+function ReviewCard({ review, colors, onEdit }: { review: Review; colors: any; onEdit?: () => void }) {
     return (
         <View style={{ backgroundColor: colors.card, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 0.5, borderColor: colors.border }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -588,7 +586,14 @@ function ReviewCard({ review, colors }: { review: Review; colors: any }) {
                         </Text>
                     </View>
                 </View>
-                <StarRating rating={review.rating} readonly size={13} />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <StarRating rating={review.rating} readonly size={13} />
+                    {onEdit && (
+                        <TouchableOpacity onPress={onEdit} hitSlop={8}>
+                            <Ionicons name="pencil" size={15} color={colors.accent} />
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
             {review.comment && <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 19, marginTop: 4 }}>{review.comment}</Text>}
         </View>

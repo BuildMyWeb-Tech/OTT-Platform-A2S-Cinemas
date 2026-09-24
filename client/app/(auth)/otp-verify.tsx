@@ -21,6 +21,7 @@ export default function OTPVerify() {
         type: "phone" | "email";
         purpose: "login" | "register";
         name?: string;
+        phone?: string;
         redirectTo?: string;
     }>();
 
@@ -71,7 +72,7 @@ export default function OTPVerify() {
         }
         setLoading(true);
         const result = await loginWithOTP(
-            params.identifier, params.type, finalOtp, params.purpose, params.name,
+            params.identifier, params.type, finalOtp, params.purpose, params.name, params.phone,
         );
         setLoading(false);
         if (result.success) {

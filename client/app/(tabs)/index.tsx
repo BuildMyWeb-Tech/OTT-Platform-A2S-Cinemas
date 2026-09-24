@@ -250,7 +250,7 @@ export default function Home() {
                                     >
                                         <Ionicons name="play" size={18} color="#fff" />
                                         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-                                            {hasLicense(currentBanner._id) ? "Watch Now" : "Get Access"}
+                                            {hasLicense(currentBanner._id) ? "Watch Now" : "Buy Now"}
                                         </Text>
                                     </TouchableOpacity>
 
@@ -263,7 +263,7 @@ export default function Home() {
                                         }}
                                     >
                                         <Ionicons name="information-circle-outline" size={18} color="#fff" />
-                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>Info</Text>
+                                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 15 }}>More Details</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>

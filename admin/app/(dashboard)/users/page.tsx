@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Search, ShieldOff, ShieldCheck } from "lucide-react";
 import { PageHeader, PageLoader, EmptyState, Badge, Table, Pagination, ConfirmDialog } from "@/components/ui";
+import PhoneCell from "@/components/PhoneCell";
 import api from "@/lib/api";
 import { AdminUser } from "@/lib/types";
 
@@ -83,7 +84,7 @@ export default function UsersPage() {
           <EmptyState title="No users found" />
         ) : (
           <>
-            <Table headers={["User", "Role", "Purchases", "Joined", "Status", "Action"]}>
+            <Table headers={["User", "Phone", "Role", "Purchases", "Joined", "Status", "Action"]}>
               {filtered.map((user) => (
                 <tr key={user._id} className="hover:bg-[#1A1A24] transition-colors">
                   <td className="py-3 px-4 first:pl-0">
@@ -91,6 +92,9 @@ export default function UsersPage() {
                       <p className="text-white text-sm font-medium">{user.name}</p>
                       <p className="text-gray-500 text-xs">{user.email}</p>
                     </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <PhoneCell phone={user.phone} />
                   </td>
                   <td className="py-3 px-4">
                     <Badge variant={user.role === "admin" ? "red" : "gray"}>{user.role}</Badge>
