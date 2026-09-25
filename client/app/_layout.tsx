@@ -22,7 +22,7 @@ function AppContent() {
         ScreenCapture.preventScreenCaptureAsync().catch(() => {});
 
         // Warm up backend
-        fetch("https://ott-platform-a2s-cinemas.onrender.com/health").catch(() => {});
+        fetch("https://ott-platform-a2s-cinemas-bsy1.onrender.com/health").catch(() => {});
 
         // Delay to load theme from AsyncStorage before first render
         setTimeout(() => setAppReady(true), 300);
