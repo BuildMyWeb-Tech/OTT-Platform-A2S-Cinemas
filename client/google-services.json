@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "178978813692",
+    "project_id": "a2s-cinemas",
+    "storage_bucket": "a2s-cinemas.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:178978813692:android:c140ed49ce05ae0df8c979",
+        "android_client_info": {
+          "package_name": "com.a2scinemas.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-b5uden9xXVwu4_iDNO7IMskYcdL5fAQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
