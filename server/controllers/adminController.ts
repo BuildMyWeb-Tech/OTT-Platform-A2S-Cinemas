@@ -414,12 +414,13 @@ export const exportMovieAnalytics = async (req: Request, res: Response) => {
     }
 };
 
-// ── GET /api/admin/recent-activity — everything that happened in the last 48h ──
+// ── GET /api/admin/recent-activity — everything that happened in the last 56h,
+// or (if nothing happened in that window) the last 3 events regardless of age ──
 export const getRecentActivity = async (req: Request, res: Response) => {
     try {
-        const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        const since = new Date(Date.now() - 56 * 60 * 60 * 1000);
 
-        const [newUsers, newPurchases, newReviews] = await Promise.all([
+        let [newUsers, newPurchases, newReviews] = await Promise.all([
             User.find({ createdAt: { $gte: since } }).select("name email createdAt").sort("-createdAt"),
             Purchase.find({ createdAt: { $gte: since } })
                 .populate("user", "name email")
@@ -430,6 +431,16 @@ export const getRecentActivity = async (req: Request, res: Response) => {
                 .populate("movieId", "title")
                 .sort("-createdAt"),
         ]);
+
+        let usedFallback = false;
+        if (newUsers.length === 0 && newPurchases.length === 0 && newReviews.length === 0) {
+            usedFallback = true;
+            [newUsers, newPurchases, newReviews] = await Promise.all([
+                User.find({}).select("name email createdAt").sort("-createdAt").limit(3),
+                Purchase.find({}).populate("user", "name email").populate("movie", "title").sort("-createdAt").limit(3),
+                Review.find({}).populate("userId", "name email").populate("movieId", "title").sort("-createdAt").limit(3),
+            ]);
+        }
 
         const events: any[] = [];
 
@@ -464,10 +475,12 @@ export const getRecentActivity = async (req: Request, res: Response) => {
         });
 
         events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        const finalEvents = usedFallback ? events.slice(0, 3) : events;
 
         res.json({
             success: true,
-            data: events,
+            data: finalEvents,
+            usedFallback,
             summary: {
                 newUsers: newUsers.length,
                 newPurchases: newPurchases.filter((p) => p.status === "active" || p.status === "expired").length,

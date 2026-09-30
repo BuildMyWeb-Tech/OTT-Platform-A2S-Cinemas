@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { UserPlus, IndianRupee, Star, Clock, XCircle } from "lucide-react";
-import { PageHeader, PageLoader, EmptyState, StatCard } from "@/components/ui";
+import { PageHeader, PageLoader, EmptyState, StatCard, Table, Badge } from "@/components/ui";
 import api from "@/lib/api";
 
 interface ActivityEvent {
@@ -27,6 +27,14 @@ const COLORS: Record<string, string> = {
   review: "text-yellow-400 bg-yellow-500/10",
 };
 
+const BADGE_VARIANT: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = {
+  signup: "blue",
+  purchase: "green",
+  pending: "amber",
+  failed: "red",
+  review: "gray",
+};
+
 function timeAgo(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -37,9 +45,17 @@ function timeAgo(iso: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function exactDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
+
 export default function ActivityPage() {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [summary, setSummary] = useState({ newUsers: 0, newPurchases: 0, newReviews: 0 });
+  const [usedFallback, setUsedFallback] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchActivity = async () => {
@@ -48,6 +64,7 @@ export default function ActivityPage() {
       const { data } = await api.get("/admin/recent-activity");
       setEvents(data.data || []);
       setSummary(data.summary || { newUsers: 0, newPurchases: 0, newReviews: 0 });
+      setUsedFallback(!!data.usedFallback);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -60,7 +77,7 @@ export default function ActivityPage() {
 
   return (
     <div>
-      <PageHeader title="Recent Activity" description="Everything that happened in the app in the last 48 hours" />
+      <PageHeader title="Recent Activity" description="Everything that happened in the app in the last 56 hours" />
 
       <div className="grid grid-cols-3 gap-4 mb-5">
         <StatCard label="New Sign-ups" value={summary.newUsers} icon={UserPlus} color="blue" />
@@ -68,26 +85,46 @@ export default function ActivityPage() {
         <StatCard label="New Reviews" value={summary.newReviews} icon={Star} color="amber" />
       </div>
 
+      {usedFallback && !loading && events.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3 mb-4">
+          <p className="text-amber-400 text-sm">
+            Nothing happened in the last 56 hours — showing the last 3 activities instead.
+          </p>
+        </div>
+      )}
+
       <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5">
         {loading ? (
           <PageLoader />
         ) : events.length === 0 ? (
-          <EmptyState title="No activity in the last 48 hours" />
+          <EmptyState title="No activity yet" />
         ) : (
-          <div className="space-y-1">
+          <Table headers={["Type", "Details", "Date & Time", "Time Ago"]}>
             {events.map((ev, i) => {
               const Icon = ICONS[ev.type] || Clock;
               return (
-                <div key={i} className="flex items-center gap-3 py-3 px-2 border-b border-[#1E1E2E] last:border-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${COLORS[ev.type] || "text-gray-400 bg-gray-500/10"}`}>
-                    <Icon size={14} />
-                  </div>
-                  <p className="text-white text-sm flex-1">{ev.message}</p>
-                  <span className="text-gray-500 text-xs flex-shrink-0">{timeAgo(ev.time)}</span>
-                </div>
+                <tr key={i} className="hover:bg-[#1A1A24] transition-colors">
+                  <td className="py-3 px-4 first:pl-0">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${COLORS[ev.type] || "text-gray-400 bg-gray-500/10"}`}>
+                        <Icon size={13} />
+                      </div>
+                      <Badge variant={BADGE_VARIANT[ev.type] || "gray"}>{ev.type}</Badge>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <p className="text-white text-sm">{ev.message}</p>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="text-gray-400 text-sm">{exactDateTime(ev.time)}</span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="text-gray-500 text-xs">{timeAgo(ev.time)}</span>
+                  </td>
+                </tr>
               );
             })}
-          </div>
+          </Table>
         )}
       </div>
     </div>

@@ -97,8 +97,9 @@ export const sendEmailOTP = async (
                       <p style="margin:0 0 6px;font-size:11px;color:#888888;letter-spacing:2px;text-transform:uppercase;">
                         Verification Code
                       </p>
-                      <p style="margin:0;font-size:46px;font-weight:900;color:#ffffff;letter-spacing:14px;font-family:'Courier New',monospace;">
-                        ${otp}
+                      <p style="margin:0;font-size:46px;font-weight:900;color:#ffffff;letter-spacing:14px;font-family:'Courier New',monospace;user-select:all;">${otp}</p>
+                      <p style="margin:10px 0 0;font-size:11px;color:#666666;">
+                        Tap and hold the code to copy it
                       </p>
                     </div>
                   </td>

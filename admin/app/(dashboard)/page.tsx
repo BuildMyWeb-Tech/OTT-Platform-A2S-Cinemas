@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Users, Film, IndianRupee, ShoppingCart, Key, TrendingUp, Smartphone } from "lucide-react";
+import Link from "next/link";
+import { Users, Film, IndianRupee, ShoppingCart, Key, TrendingUp, Smartphone, Activity } from "lucide-react";
 import { StatCard, PageLoader, Table, Badge } from "@/components/ui";
 import api from "@/lib/api";
 import { DashboardStats, Purchase } from "@/lib/types";
@@ -97,7 +98,72 @@ export default function DashboardPage() {
         )}
       </div>
 
+      <RecentActivityCard />
+
       <AppVersionCard />
+    </div>
+  );
+}
+
+function exactDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
+
+function timeAgo(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const ACTIVITY_BADGE_VARIANT: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = {
+  signup: "blue", purchase: "green", pending: "amber", failed: "red", review: "gray",
+};
+
+function RecentActivityCard() {
+  const [events, setEvents] = useState<{ type: string; message: string; time: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/admin/recent-activity?limit=5")
+      .then(({ data }) => setEvents((data.data || []).slice(0, 5)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="bg-[#111118] border border-[#1E1E2E] rounded-xl p-5 mt-6" data-testid="recent-activity-card">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Activity size={16} className="text-gray-500" />
+          <h2 className="text-white font-medium text-sm">Recent Activity</h2>
+        </div>
+        <Link href="/activity" className="text-[#E50914] text-xs font-medium hover:underline">View all</Link>
+      </div>
+      {loading ? (
+        <PageLoader />
+      ) : events.length === 0 ? (
+        <p className="text-gray-500 text-sm text-center py-8">No activity yet</p>
+      ) : (
+        <Table headers={["Type", "Details", "Date & Time", "Time Ago"]}>
+          {events.map((ev, i) => (
+            <tr key={i} className="hover:bg-[#1A1A24] transition-colors">
+              <td className="py-3 px-4 first:pl-0">
+                <Badge variant={ACTIVITY_BADGE_VARIANT[ev.type] || "gray"}>{ev.type}</Badge>
+              </td>
+              <td className="py-3 px-4"><p className="text-white text-sm">{ev.message}</p></td>
+              <td className="py-3 px-4"><span className="text-gray-400 text-sm">{exactDateTime(ev.time)}</span></td>
+              <td className="py-3 px-4"><span className="text-gray-500 text-xs">{timeAgo(ev.time)}</span></td>
+            </tr>
+          ))}
+        </Table>
+      )}
     </div>
   );
 }

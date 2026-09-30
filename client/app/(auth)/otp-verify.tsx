@@ -4,10 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator, KeyboardAvoidingView, Platform,
+    ActivityIndicator, AppState, KeyboardAvoidingView, Platform,
     ScrollView, StatusBar, Text, TextInput,
     TouchableOpacity, View,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import api from "@/constants/api";
@@ -64,6 +65,29 @@ export default function OTPVerify() {
             inputRefs.current[index - 1]?.focus();
         }
     };
+
+    const applyClipboardOTP = async () => {
+        try {
+            const text = (await Clipboard.getStringAsync())?.trim();
+            const match = text?.match(/\b\d{6}\b/);
+            if (match) {
+                const digits = match[0].split("");
+                setOtp(digits);
+                handleVerify(match[0]);
+            }
+        } catch {}
+    };
+
+    // Auto-check the clipboard when this screen first opens, and again whenever
+    // the app comes back to the foreground (e.g. after copying the code from
+    // the Mail app) — copying the 6-digit code there is enough, no manual retyping.
+    useEffect(() => {
+        applyClipboardOTP();
+        const sub = AppState.addEventListener("change", (state) => {
+            if (state === "active") applyClipboardOTP();
+        });
+        return () => sub.remove();
+    }, []);
 
     const handleVerify = async (otpValue?: string) => {
         const finalOtp = otpValue || otp.join("");
@@ -172,6 +196,12 @@ export default function OTPVerify() {
                                 />
                             ))}
                         </View>
+
+                        <TouchableOpacity onPress={applyClipboardOTP} style={{ alignSelf: "center", marginBottom: 24, marginTop: -16 }}>
+                            <Text style={{ color: colors.accent, fontWeight: "600", fontSize: 13 }}>
+                                Paste code from clipboard
+                            </Text>
+                        </TouchableOpacity>
 
                         <TouchableOpacity
                             onPress={() => handleVerify()}
