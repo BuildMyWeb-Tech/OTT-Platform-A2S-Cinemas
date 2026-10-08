@@ -3,7 +3,7 @@ import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 
-const JWT_SECRET: Secret = process.env.JWT_SECRET || "secret";
+const JWT_SECRET: Secret = process.env.JWT_SECRET as string;
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || "30d") as SignOptions["expiresIn"];
 
 const signToken = (id: string) => {
@@ -119,32 +119,24 @@ export const savePushToken = async (req: Request, res: Response) => {
 };
 
 export const changePassword = async (req: Request, res: Response) => {
-    console.log("[changePassword] Controller entered");
-    console.log("[changePassword] Body:", JSON.stringify(req.body));
-    console.log("[changePassword] User ID:", req.user?._id);
     try {
         const { oldPassword, newPassword } = req.body;
         if (!oldPassword || !newPassword) {
-            console.log("[changePassword] Missing fields");
             return res.status(400).json({ success: false, message: "Both old and new password required" });
         }
         if (newPassword.length < 6) {
-            console.log("[changePassword] Password too short");
             return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
         }
         const user = await User.findById(req.user._id).select("+password");
         if (!user) {
-            console.log("[changePassword] User not found in DB");
             return res.status(404).json({ success: false, message: "User not found" });
         }
         const isMatch = await bcrypt.compare(oldPassword, user.password);
-        console.log("[changePassword] Password match:", isMatch);
         if (!isMatch) {
             return res.status(400).json({ success: false, message: "Current password is incorrect" });
         }
         user.password = await bcrypt.hash(newPassword, 12);
         await user.save();
-        console.log("[changePassword] Password updated successfully");
         res.json({ success: true, message: "Password updated successfully" });
     } catch (error: any) {
         console.error("[changePassword] Error:", error.message);

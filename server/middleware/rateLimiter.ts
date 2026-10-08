@@ -28,9 +28,10 @@ export const registerRateLimiter = rateLimit({
 // General API rate limiter — 100 requests per minute per IP
 export const apiRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100,
+  max: 300, // generous: many mobile users can share one carrier-NAT IP
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith("/payment/webhook"),
   message: {
     success: false,
     message: "Too many requests. Please slow down.",

@@ -3,6 +3,9 @@ dns.setServers(["8.8.8.8", "1.1.1.1"]);
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import compression from "compression";
+import { apiRateLimiter } from "./middleware/rateLimiter.js";
 import connectDB from "./config/db.js";
 
 import authRoutes from "./routes/authRoutes.js";
@@ -17,7 +20,17 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import configRoutes from "./routes/configRoutes.js";
 
+if (!process.env.JWT_SECRET) {
+    console.error("FATAL: JWT_SECRET is not set — refusing to start");
+    process.exit(1);
+}
+
 const app = express();
+// Render sits behind a proxy; without this every client appears as one IP to the rate limiters
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+app.use(helmet());
+app.use(compression());
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -44,11 +57,6 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
-// Debug middleware
-app.use((req, _res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-});
 
 // Root routes
 app.get("/", (_req, res) => {
@@ -74,6 +82,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // API routes
+app.use("/api", apiRateLimiter);
 console.log("Mounting routes...");
 // Optimized home screen data — single request instead of 3
 app.get("/api/home", async (req, res) => {
@@ -112,11 +121,7 @@ app.get("/api/home", async (req, res) => {
     }
 });
 // Debug: log every request hitting auth routes
-app.use("/api/auth", (req, res, next) => {
-    console.log(`[AUTH ROUTE HIT] ${req.method} ${req.url} | Full: ${req.method} /api/auth${req.url}`);
-    console.log(`[AUTH HEADERS] Authorization: ${req.headers.authorization ? "Bearer ..." + req.headers.authorization.slice(-10) : "MISSING"}`);
-    next();
-}, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/movies", movieRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/license", licenseRoutes);

@@ -4,7 +4,7 @@ import OTP from "../models/OTP.js";
 import User from "../models/User.js";
 import { generateOTP, sendPhoneOTP, sendEmailOTP } from "../services/otpService.js";
 
-const JWT_SECRET: Secret = process.env.JWT_SECRET || "secret";
+const JWT_SECRET: Secret = process.env.JWT_SECRET as string;
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || "30d") as SignOptions["expiresIn"];
 const signToken = (id: string) => jwt.sign({ id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
@@ -62,7 +62,6 @@ export const sendOTP = async (req: Request, res: Response) => {
         await OTP.deleteMany({ identifier: normalizedId, type });
         await OTP.create({ identifier: normalizedId, type, otp, purpose, name: name?.trim(), expiresAt });
 
-        console.log(`[OTP-SEND] Generated OTP: ${otp} for ${normalizedId} (DEV LOG — remove in prod)`);
 
         const sent = type === "phone"
             ? await sendPhoneOTP(normalizedId, otp)
@@ -87,7 +86,6 @@ export const sendOTP = async (req: Request, res: Response) => {
 export const verifyOTP = async (req: Request, res: Response) => {
     try {
         const { identifier, type, otp, purpose, name, phone } = req.body;
-        console.log(`[OTP-VERIFY] type=${type} purpose=${purpose} otp=${otp}`);
 
         if (!identifier || !type || !otp || !purpose) {
             return res.status(400).json({ success: false, message: "identifier, type, otp, and purpose required" });
