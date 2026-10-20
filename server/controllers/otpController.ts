@@ -124,6 +124,21 @@ export const verifyOTP = async (req: Request, res: Response) => {
             });
         }
 
+        // New email: only the Sign Up flow may create an account, and it must carry a valid phone.
+        // Checked before the OTP is consumed so the user can retry (e.g. switch to Sign Up) with the same code.
+        if (type === "email") {
+            const existing = await User.exists({ email: normalizedId });
+            if (!existing) {
+                if (purpose === "login") {
+                    return res.status(404).json({ success: false, message: "No account found for this email. Please sign up first." });
+                }
+                const normalizedPhone = String(phone ?? "").replace(/\D/g, "").slice(-10);
+                if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
+                    return res.status(400).json({ success: false, message: "A valid 10-digit mobile number is required to sign up." });
+                }
+            }
+        }
+
         // OTP correct
         record.verified = true;
         await record.save();
@@ -157,7 +172,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
         return res.json({
             success: true,
             token,
-            data: { _id: user._id, name: user.name, email: user.email, role: user.role, image: (user as any).image },
+            data: { _id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role, image: (user as any).image },
         });
     } catch (err: any) {
         console.error("[OTP-VERIFY] Error:", err.message);

@@ -5,7 +5,7 @@ import { MessageCircle, Copy, Check } from "lucide-react";
 export default function PhoneCell({ phone }: { phone?: string }) {
   const [copied, setCopied] = useState(false);
 
-  if (!phone) return <span className="text-gray-600 text-sm">—</span>;
+  if (!phone) return <span className="text-gray-600 text-xs italic">Not provided</span>;
 
   const waLink = `https://wa.me/91${phone}`;
 

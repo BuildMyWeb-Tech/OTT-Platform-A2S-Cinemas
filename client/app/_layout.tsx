@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useEffect, useState } from "react";
 import SplashLoader from "@/components/SplashLoader";
 import ForceUpdateModal from "@/components/ForceUpdateModal";
+import PhoneRequiredModal from "@/components/PhoneRequiredModal";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import * as ScreenCapture from "expo-screen-capture";
 
@@ -62,6 +63,7 @@ function AppContent() {
             </Stack>
             <Toast />
             <ForceUpdateModal />
+            <PhoneRequiredModal />
         </>
     );
 }
