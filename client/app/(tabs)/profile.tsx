@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import BrandFooter from "@/components/BrandFooter";
 import ConfirmModal from "@/components/ConfirmModal";
 import Toast from "react-native-toast-message";
 import api from "@/constants/api";
@@ -361,9 +362,7 @@ export default function Profile() {
                         <MenuRow icon="log-out-outline" label="Sign Out" onPress={() => setSignOutVisible(true)} colors={colors} isLast danger rightContent={<View />} />
                     </SectionCard>
 
-                    <Text style={{ textAlign: "center", color: colors.textMuted, fontSize: 12, marginTop: 8 }}>
-                        A2S Cinemas v1.0.0
-                    </Text>
+                    <BrandFooter showVersion />
                 </View>
             </ScrollView>
 

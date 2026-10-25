@@ -14,6 +14,7 @@ import { useLicense } from "@/context/LicenseContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useNotifications } from "@/context/NotificationContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import BrandFooter from "@/components/BrandFooter";
 import SplashLoader from "@/components/SplashLoader";
 import { useState } from "react";
 
@@ -376,6 +377,7 @@ export default function Home() {
                         />
                     )}
                 </View>
+                <BrandFooter />
             </ScrollView>
         </View>
     );

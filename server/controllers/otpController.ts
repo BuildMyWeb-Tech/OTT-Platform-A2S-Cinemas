@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import crypto from "crypto";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import OTP from "../models/OTP.js";
 import User from "../models/User.js";
@@ -178,4 +179,43 @@ export const verifyOTP = async (req: Request, res: Response) => {
         console.error("[OTP-VERIFY] Error:", err.message);
         return res.status(500).json({ success: false, message: err.message });
     }
+};
+// ── GET /api/auth/otp-copy?c=123456 ───────────────────────────────────────────
+// Landing page for the code in the OTP email. Email clients strip JavaScript, so a
+// tap on the code opens this page, where a button (a real user gesture) can write
+// the code to the clipboard; the app then picks it up when it returns to the foreground.
+export const otpCopyPage = (req: Request, res: Response) => {
+    const code = String(req.query.c ?? "");
+    if (!/^\d{6}$/.test(code)) {
+        return res.status(400).type("text/plain").send("Invalid code");
+    }
+    const nonce = crypto.randomBytes(16).toString("base64");
+    res.set({
+        "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'`,
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+        "X-Robots-Tag": "noindex, nofollow",
+    });
+    res.type("html").send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A2S Cinemas verification code</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0A0A0F;color:#fff;font-family:Arial,sans-serif;text-align:center}
+.card{padding:32px 24px;max-width:340px;width:100%}
+.code{font-family:'Courier New',monospace;font-size:44px;font-weight:900;letter-spacing:10px;background:#1A1A2E;border:2px solid #E50914;border-radius:14px;padding:18px 10px;margin:18px 0}
+button{width:100%;background:#E50914;color:#fff;border:0;border-radius:12px;padding:16px;font-size:17px;font-weight:700}
+p{color:#aaa;font-size:14px;line-height:1.5}
+</style></head><body><div class="card">
+<h2 style="margin:0">A2S Cinemas</h2>
+<p>Your verification code</p>
+<div class="code" id="code">${code}</div>
+<button id="btn">Copy code</button>
+<p id="msg">Tap the button, then go back to the A2S Cinemas app. It will fill the code for you.</p>
+</div>
+<script nonce="${nonce}">
+var code=document.getElementById('code').textContent,msg=document.getElementById('msg'),btn=document.getElementById('btn');
+function done(){btn.textContent='Copied \u2713';msg.textContent='Now switch back to the A2S Cinemas app \u2014 the code will be filled automatically.';}
+function fallback(){var t=document.createElement('textarea');t.value=code;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){msg.textContent='Could not copy automatically. Please touch and hold the code to copy it.';}document.body.removeChild(t);}
+btn.addEventListener('click',function(){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(done,fallback);}else{fallback();}});
+</script></body></html>`);
 };

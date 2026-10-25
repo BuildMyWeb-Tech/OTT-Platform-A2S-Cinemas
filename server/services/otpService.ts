@@ -48,6 +48,11 @@ export const sendEmailOTP = async (
         const fromName = process.env.OTP_FROM_NAME || "A2S Cinemas";
         const fromEmail = process.env.OTP_FROM_EMAIL || "noreply@a2scinemas.com";
 
+        // Tapping the code opens a page with a working "Copy" button (email clients block JS)
+        let apiBase = (process.env.BASE_URL || "https://ott-platform-a2s-cinemas-bsy1.onrender.com/api").replace(/\/+$/, "");
+        if (!apiBase.endsWith("/api")) apiBase += "/api";
+        const copyUrl = `${apiBase}/auth/otp-copy?c=${encodeURIComponent(otp)}`;
+
         // Split OTP into individual digits for display
         const digits = otp.split("").join(" &nbsp; ");
 
@@ -97,9 +102,10 @@ export const sendEmailOTP = async (
                       <p style="margin:0 0 6px;font-size:11px;color:#888888;letter-spacing:2px;text-transform:uppercase;">
                         Verification Code
                       </p>
-                      <p style="margin:0;font-size:46px;font-weight:900;color:#ffffff;letter-spacing:14px;font-family:'Courier New',monospace;user-select:all;">${otp}</p>
+                      <a href="${copyUrl}" style="display:block;margin:0;font-size:46px;font-weight:900;color:#ffffff;letter-spacing:14px;font-family:'Courier New',monospace;text-decoration:none;">${otp}</a>
+                      <a href="${copyUrl}" style="display:inline-block;margin-top:14px;background:#E50914;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:10px 22px;border-radius:8px;">Tap to copy code</a>
                       <p style="margin:10px 0 0;font-size:11px;color:#666666;">
-                        Tap and hold the code to copy it
+                        Tap the code, press Copy, then return to the app
                       </p>
                     </div>
                   </td>
