@@ -47,6 +47,14 @@ export const sendOTP = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, message: "Enter a valid 10-digit Indian mobile number" });
         }
 
+        // Sign In for an email that has no account: stop here, before emailing an OTP
+        if (type === "email" && purpose === "login") {
+            const exists = await User.exists({ email: normalizedId });
+            if (!exists) {
+                return res.status(404).json({ success: false, message: "No account found for this email. Please sign up first." });
+            }
+        }
+
         // Rate limit: 1 OTP per minute
         const recent = await OTP.findOne({
             identifier: normalizedId,
