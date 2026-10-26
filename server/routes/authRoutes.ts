@@ -1,8 +1,9 @@
 import express from "express";
 import { register, login, getMe, updateProfile, changePassword, savePushToken } from "../controllers/authController.js";
 import { sendOTP, verifyOTP, otpCopyPage } from "../controllers/otpController.js";
+import { requestAccountDeletion, confirmAccountDeletion } from "../controllers/accountController.js";
 import { protect } from "../middleware/auth.js";
-import { loginRateLimiter, registerRateLimiter } from "../middleware/rateLimiter.js";
+import { loginRateLimiter, registerRateLimiter, deletionRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
@@ -18,6 +19,10 @@ router.put("/push-token", protect, savePushToken);
 router.post("/otp/send", sendOTP);
 router.post("/otp/verify", verifyOTP);
 router.get("/otp-copy", otpCopyPage);
+
+// Public account deletion (Google Play requirement)
+router.post("/delete-account/request", deletionRateLimiter, requestAccountDeletion);
+router.post("/delete-account/confirm", deletionRateLimiter, confirmAccountDeletion);
 
 console.log("[authRoutes] Registered:");
 router.stack.forEach((r: any) => {
