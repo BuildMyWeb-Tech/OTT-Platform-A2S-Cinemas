@@ -8,7 +8,7 @@ const isValidObjectId = (id: unknown): boolean =>
     typeof id === "string" && mongoose.Types.ObjectId.isValid(id);
 
 // Helper — recalculate and save movie average rating
-export async function recalculateMovieRating(movieId: string) {
+async function recalculateMovieRating(movieId: string) {
     const result = await Review.aggregate([
         { $match: { movieId: new mongoose.Types.ObjectId(movieId) } },
         {

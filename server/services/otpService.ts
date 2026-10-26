@@ -37,8 +37,7 @@ export const sendPhoneOTP = async (phone: string, otp: string): Promise<boolean>
 export const sendEmailOTP = async (
     email: string,
     otp: string,
-    name?: string,
-    forDeletion = false
+    name?: string
 ): Promise<boolean> => {
     if (process.env.EMAIL_OTP_ENABLED !== "yes") {
         console.log(`[OTP-EMAIL] DISABLED — OTP for ${email}: ${otp}`);
@@ -90,9 +89,9 @@ export const sendEmailOTP = async (
                 Hi ${displayName},
               </p>
               <p style="margin:0 0 28px;font-size:15px;color:#aaaaaa;line-height:1.6;">
-                ${forDeletion
-                  ? `You requested to <strong style="color:#ffffff;">permanently delete</strong> your A2S Cinemas account. Enter the code below on the deletion page to confirm. If this was not you, ignore this email and nothing will be deleted.`
-                  : `You requested a one-time verification code to sign in to your <strong style="color:#ffffff;">A2S Cinemas</strong> account. Use the code below to complete your login.`}
+                You requested a one-time verification code to sign in to your
+                <strong style="color:#ffffff;">A2S Cinemas</strong> account.
+                Use the code below to complete your login.
               </p>
 
               <!-- OTP Box -->

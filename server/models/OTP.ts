@@ -4,7 +4,7 @@ export interface IOTP extends Document {
     identifier: string;
     type: "phone" | "email";
     otp: string;
-    purpose: "login" | "register" | "delete";
+    purpose: "login" | "register";
     name?: string;
     verified: boolean;
     attempts: number;
@@ -15,7 +15,7 @@ const OTPSchema = new Schema<IOTP>({
     identifier: { type: String, required: true, lowercase: true, trim: true },
     type: { type: String, enum: ["phone", "email"], required: true },
     otp: { type: String, required: true },
-    purpose: { type: String, enum: ["login", "register", "delete"], required: true },
+    purpose: { type: String, enum: ["login", "register"], required: true },
     name: { type: String },
     verified: { type: Boolean, default: false },
     attempts: { type: Number, default: 0 },
